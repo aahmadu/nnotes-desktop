@@ -15,7 +15,7 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
-import db from '../data/data.js';
+import db from '../data/data';
 
 class AppUpdater {
   constructor() {
