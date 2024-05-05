@@ -1,49 +1,101 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useCallback } from 'react';
 import icon from '../../assets/icon.svg';
 import './App.css';
 
-function Hello() {
+import { Note } from '../types/notes';
+
+import { useState } from 'react';
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import Sidebar from './components/Sidebar';
+import Editor from './components/Editor';
+
+import { debounce } from '../utils/general';
+
+function Home() {
+  const [notes, setNotes] = useState<Note[]>([]);
+
+  const fetchNotes = async () => {
+    try {
+      const noteResponse = await window.electron.ipcRenderer.invokeMessage('get-all-notes');
+      if (noteResponse && noteResponse.success) {
+        setNotes(noteResponse.notes);
+      } else {
+        console.error('Failed to get notes:', noteResponse.error);
+      }
+    } catch (error) {
+      console.error('Error when getting notes:', error.message);
+    }
+  };
+
+  fetchNotes();
+  
+  const [activeNote, setActiveNote] = useState<Note | null>(null);
+  // const [note, setNote] = useState(null);
+
+  const handleNoteSelect = (note: Note) => {
+    console.log(note);
+    setActiveNote(note);
+  };
+  
+  const handleNewNote = (note: Note) => {
+    setActiveNote(null);
+  };
+
+  const handleDeleteNote = (noteID: number) => {
+    window.electron.ipcRenderer.sendMessage('delete-note', { noteID });
+  };
+
+  // Function to update database with content
+  const updateDatabase = useCallback(debounce(async (updatedNote) => {
+    console.log(updatedNote)
+    if (updatedNote.id === undefined) {
+        try {
+            const response = await window.electron.ipcRenderer.invokeMessage('add-note', { updatedNote });
+            if (response && response.success) {
+                console.log(response.activeNote)
+                setActiveNote(response.activeNote);  // Update the noteID state with the new ID from the database
+            } else {
+                console.error('Failed to add note:', response.error);
+            }
+        } catch (error) {
+            console.error('Error when adding note:', error.message);
+        }
+    } else {
+        console.log(updatedNote.id, updatedNote.content)
+        try {
+            window.electron.ipcRenderer.sendMessage('update-note', { updatedNote });
+        } catch (error) {
+            console.error('Error when updating note:', error.message);
+        }
+        
+    }
+  }, 2000), []);// Debounce for 2 seconds
+
   return (
-    <div>
-      <div className="Hello">
-        <img width="200" alt="icon" src={icon} />
-      </div>
-      <h1>electron-react-boilerplate</h1>
-      <div className="Hello">
-        <a
-          href="https://electron-react-boilerplate.js.org/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="books">
-              📚
-            </span>
-            Read our docs
-          </button>
-        </a>
-        <a
-          href="https://github.com/sponsors/electron-react-boilerplate"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <button type="button">
-            <span role="img" aria-label="folded hands">
-              🙏
-            </span>
-            Donate
-          </button>
-        </a>
-      </div>
-    </div>
+    <PanelGroup className="container" direction="horizontal">
+      <Panel defaultSize={30} minSize={20}>
+        <Sidebar notes={notes} onNoteSelect={handleNoteSelect} onNewNote={handleNewNote} onDelete={handleDeleteNote} />
+      </Panel>
+      <PanelResizeHandle />
+      <Panel minSize={30}>
+        <Editor activeNote={activeNote} setActiveNote={setActiveNote} updateDatabase={updateDatabase} />
+      </Panel>
+      <PanelResizeHandle />
+      <Panel defaultSize={30} minSize={20}>
+        right
+      </Panel>
+    </PanelGroup>
   );
 }
+
+
 
 export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Hello />} />
+        <Route path="/" element={<Home />} />
       </Routes>
     </Router>
   );

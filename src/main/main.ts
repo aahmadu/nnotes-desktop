@@ -15,6 +15,8 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
+import db from '../data/data.js';
+
 class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
@@ -29,6 +31,88 @@ ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
+});
+
+// Handle IPC event for adding a new note
+ipcMain.handle('add-note', async (event, note) => {
+  const { updatedNote } = note;
+  return new Promise((resolve, reject) => {
+    db.run("INSERT INTO nodes (title, content) VALUES (?, ?)", [updatedNote.title, updatedNote.content], function(err) {
+        if (err) {
+            reject(new Error(err.message)); // Reject the promise with an error
+        } else {
+          db.get("SELECT * FROM nodes WHERE id = ?", [this.lastID], (err, row) => {
+            if (err) {
+                reject(new Error(err.message));
+            } else {
+                resolve({ success: true, activeNote: row });
+            }
+        });
+        }
+    });
+  });
+});
+
+// Handle IPC event for updating a note
+ipcMain.on('update-note', async (event, note) => {
+  const { updatedNote } = note;
+  db.run("UPDATE nodes SET title = ?, content = ? WHERE id = ?", [updatedNote.title, updatedNote.content, updatedNote.id], function(err) {
+    if (err) {
+        event.reply('update-note-response', { success: false, error: err.message });
+    } else {
+      console.log(updatedNote);
+      event.reply('update-note-response', { success: true });
+    }
+});
+});
+
+
+// Handle IPC event for reading all notes
+ipcMain.handle('get-all-notes', async (event) => {
+  return new Promise((resolve, reject) => {
+    db.all("SELECT * FROM nodes", (err, rows) => {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve({ success: true, notes: rows });
+      }
+    });
+  });
+});
+
+// Handle IPC event for deleting a note
+ipcMain.on('delete-note', (event, note) => {
+  const { noteID } = note;
+  db.run("DELETE FROM nodes WHERE id = ?", noteID, function(err) {
+      if (err) {
+          event.reply('delete-note-response', { success: false, error: err.message });
+      } else {
+          event.reply('delete-note-response', { success: true });
+      }
+  });
+});
+
+// Handle IPC event for adding a semantic link
+ipcMain.on('add-link', (event, link) => {
+  const { sourceNodeId, targetNodeId, relationshipType } = link;
+  db.run("INSERT INTO semantic_relationships (source_node_id, target_node_id, relationship_type) VALUES (?, ?, ?)", [sourceNodeId, targetNodeId, relationshipType], function(err) {
+      if (err) {
+          event.reply('add-link-response', { success: false, error: err.message });
+      } else {
+          event.reply('add-link-response', { success: true });
+      }
+  });
+});
+
+// Handle IPC event for deleting a semantic link
+ipcMain.on('delete-link', (event, id) => {
+  db.run("DELETE FROM semantic_relationships WHERE id = ?", id, function(err) {
+      if (err) {
+          event.reply('delete-link-response', { success: false, error: err.message });
+      } else {
+          event.reply('delete-link-response', { success: true });
+      }
+  });
 });
 
 if (process.env.NODE_ENV === 'production') {
