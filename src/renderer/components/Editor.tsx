@@ -3,12 +3,11 @@ import './Editor.css';
 import { Note } from '../../types/notes';
 
 type EditorProps = {
-    activeNote: Note;
-    setActiveNote: (value: Note) => void;
-    updateDatabase: (note: Note) => void;
+  activeNote: Note;
+  updateDatabase: (note: Note) => void;
 };
 
-const Editor: React.FC<EditorProps> = ({ activeNote, setActiveNote, updateDatabase }) => {
+const Editor: React.FC<EditorProps> = ({activeNote, updateDatabase}) => {
   const [title, setTitle] = useState(activeNote ? activeNote.title : '');
   const [content, setContent] = useState(activeNote ? activeNote.content : '');
 
@@ -28,8 +27,8 @@ const Editor: React.FC<EditorProps> = ({ activeNote, setActiveNote, updateDataba
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
     const updatedNote = activeNote
-        ? { ...activeNote, title: title, content: e.target.value }
-        : { title: title, content: e.target.value } as Note;
+      ? { ...activeNote, title: title, content: e.target.value }
+      : ({ title: title, content: e.target.value } as Note);
     updateDatabase(updatedNote);
   };
 

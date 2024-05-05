@@ -85,7 +85,10 @@ ipcMain.on('delete-note', (event, note) => {
   const { noteID } = note;
   db.run("DELETE FROM nodes WHERE id = ?", noteID, function(err) {
       if (err) {
-          event.reply('delete-note-response', { success: false, error: err.message });
+      event.reply('delete-note-response', {
+        success: false,
+        error: err.message,
+      });
       } else {
           event.reply('delete-note-response', { success: true });
       }
@@ -95,9 +98,15 @@ ipcMain.on('delete-note', (event, note) => {
 // Handle IPC event for adding a semantic link
 ipcMain.on('add-link', (event, link) => {
   const { sourceNodeId, targetNodeId, relationshipType } = link;
-  db.run("INSERT INTO semantic_relationships (source_node_id, target_node_id, relationship_type) VALUES (?, ?, ?)", [sourceNodeId, targetNodeId, relationshipType], function(err) {
+  db.run(
+    'INSERT INTO semantic_relationships (source_node_id, target_node_id, relationship_type) VALUES (?, ?, ?)',
+    [sourceNodeId, targetNodeId, relationshipType],
+    function (err) {
       if (err) {
-          event.reply('add-link-response', { success: false, error: err.message });
+        event.reply('add-link-response', {
+          success: false,
+          error: err.message,
+        });
       } else {
           event.reply('add-link-response', { success: true });
       }
@@ -106,9 +115,12 @@ ipcMain.on('add-link', (event, link) => {
 
 // Handle IPC event for deleting a semantic link
 ipcMain.on('delete-link', (event, id) => {
-  db.run("DELETE FROM semantic_relationships WHERE id = ?", id, function(err) {
+  db.run('DELETE FROM semantic_relationships WHERE id = ?', id, function (err) {
       if (err) {
-          event.reply('delete-link-response', { success: false, error: err.message });
+      event.reply('delete-link-response', {
+        success: false,
+        error: err.message,
+      });
       } else {
           event.reply('delete-link-response', { success: true });
       }

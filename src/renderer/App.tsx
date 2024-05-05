@@ -25,21 +25,19 @@ function Home() {
         console.error('Failed to get notes:', noteResponse.error);
       }
     } catch (error) {
-      console.error('Error when getting notes:', error.message);
+      console.error('Error when getting notes:', (error as Error).message);
     }
   };
 
   fetchNotes();
 
   const [activeNote, setActiveNote] = useState<Note | null>(null);
-  // const [note, setNote] = useState(null);
 
   const handleNoteSelect = (note: Note) => {
-    console.log(note);
     setActiveNote(note);
   };
 
-  const handleNewNote = (note: Note) => {
+  const handleNewNote = () => {
     setActiveNote(null);
   };
 
@@ -48,32 +46,35 @@ function Home() {
   };
 
   // Function to update database with content
-  const updateDatabase = useCallback(debounce(async (updatedNote) => {
-    console.log(updatedNote)
-    if (updatedNote.id === undefined) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const updateDatabase = useCallback(
+    debounce(async (updatedNote: Note) => {
+      if (updatedNote.id === undefined) {
         try {
-            const response = await window.electron.ipcRenderer.invokeMessage('add-note', { updatedNote });
-            if (response && response.success) {
-                console.log(response.activeNote)
-                setActiveNote(response.activeNote);  // Update the noteID state with the new ID from the database
-            } else {
-                console.error('Failed to add note:', response.error);
-            }
+          const response = await window.electron.ipcRenderer.invokeMessage(
+            'add-note',
+            { updatedNote },
+          );
+          if (response && response.success) {
+            setActiveNote(response.activeNote); // Update the noteID state with the new ID from the database
+          } else {
+            console.error('Failed to add note:', response.error);
+          }
         } catch (error) {
-            console.error('Error when adding note:', error.message);
+          console.error('Error when adding note:', (error as Error).message);
         }
-    } else {
-        console.log(updatedNote.id, updatedNote.content)
+      } else {
         try {
           window.electron.ipcRenderer.sendMessage('update-note', {
             updatedNote,
           });
         } catch (error) {
-            console.error('Error when updating note:', error.message);
+          console.error('Error when updating note:', (error as Error).message);
         }
-
-    }
-  }, 2000), []);// Debounce for 2 seconds
+      }
+    }, 2000),
+    [],
+  ); // Debounce for 2 seconds
 
   return (
     <PanelGroup className="container" direction="horizontal">
@@ -88,8 +89,7 @@ function Home() {
       <PanelResizeHandle />
       <Panel minSize={30}>
         <Editor
-          activeNote={activeNote}
-          setActiveNote={setActiveNote}
+          activeNote={activeNote as Note}
           updateDatabase={updateDatabase}
         />
       </Panel>
@@ -100,8 +100,6 @@ function Home() {
     </PanelGroup>
   );
 }
-
-
 
 export default function App() {
   return (
