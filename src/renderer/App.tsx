@@ -1,12 +1,12 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
-import React, { useCallback } from 'react';
-import icon from '../../assets/icon.svg';
+import { useState, useCallback } from 'react';
+
 import './App.css';
+
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 import { Note } from '../types/notes';
 
-import { useState } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 
@@ -17,7 +17,8 @@ function Home() {
 
   const fetchNotes = async () => {
     try {
-      const noteResponse = await window.electron.ipcRenderer.invokeMessage('get-all-notes');
+      const noteResponse =
+        await window.electron.ipcRenderer.invokeMessage('get-all-notes');
       if (noteResponse && noteResponse.success) {
         setNotes(noteResponse.notes);
       } else {
@@ -29,7 +30,7 @@ function Home() {
   };
 
   fetchNotes();
-  
+
   const [activeNote, setActiveNote] = useState<Note | null>(null);
   // const [note, setNote] = useState(null);
 
@@ -37,7 +38,7 @@ function Home() {
     console.log(note);
     setActiveNote(note);
   };
-  
+
   const handleNewNote = (note: Note) => {
     setActiveNote(null);
   };
@@ -64,22 +65,33 @@ function Home() {
     } else {
         console.log(updatedNote.id, updatedNote.content)
         try {
-            window.electron.ipcRenderer.sendMessage('update-note', { updatedNote });
+          window.electron.ipcRenderer.sendMessage('update-note', {
+            updatedNote,
+          });
         } catch (error) {
             console.error('Error when updating note:', error.message);
         }
-        
+
     }
   }, 2000), []);// Debounce for 2 seconds
 
   return (
     <PanelGroup className="container" direction="horizontal">
       <Panel defaultSize={30} minSize={20}>
-        <Sidebar notes={notes} onNoteSelect={handleNoteSelect} onNewNote={handleNewNote} onDelete={handleDeleteNote} />
+        <Sidebar
+          notes={notes}
+          onNoteSelect={handleNoteSelect}
+          onNewNote={handleNewNote}
+          onDelete={handleDeleteNote}
+        />
       </Panel>
       <PanelResizeHandle />
       <Panel minSize={30}>
-        <Editor activeNote={activeNote} setActiveNote={setActiveNote} updateDatabase={updateDatabase} />
+        <Editor
+          activeNote={activeNote}
+          setActiveNote={setActiveNote}
+          updateDatabase={updateDatabase}
+        />
       </Panel>
       <PanelResizeHandle />
       <Panel defaultSize={30} minSize={20}>
