@@ -95,11 +95,13 @@ ipcMain.on('delete-note', (event, note) => {
   });
 });
 
+
 // Handle IPC event for adding a semantic link
 ipcMain.on('add-link', (event, link) => {
   const { sourceNodeId, targetNodeId, relationshipType } = link;
+  console.log(link);
   db.run(
-    'INSERT INTO semantic_relationships (source_node_id, target_node_id, relationship_type) VALUES (?, ?, ?)',
+    'INSERT INTO relationships (source_node_id, target_node_id, relationship_type) VALUES (?, ?, ?)',
     [sourceNodeId, targetNodeId, relationshipType],
     function (err) {
       if (err) {
@@ -113,9 +115,29 @@ ipcMain.on('add-link', (event, link) => {
   });
 });
 
+// Handle IPC event for getting all links
+ipcMain.handle('get-all-tags', async (event) => {
+  return new Promise((resolve, reject) => {
+    db.all(
+      'SELECT DISTINCT relationship_type FROM relationships',
+      (err, rows) => {
+        if (err) {
+          reject(new Error(err.message));
+        } else {
+          resolve({
+            success: true,
+            allTags: rows.map((item) => item.relationship_type),
+          });
+        }
+      },
+    );
+  });
+});
+
+
 // Handle IPC event for deleting a semantic link
 ipcMain.on('delete-link', (event, id) => {
-  db.run('DELETE FROM semantic_relationships WHERE id = ?', id, function (err) {
+  db.run('DELETE FROM relationships WHERE id = ?', id, function (err) {
       if (err) {
       event.reply('delete-link-response', {
         success: false,

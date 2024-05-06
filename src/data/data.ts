@@ -11,7 +11,7 @@ const dbPath = path.join(googleDrivePath, dbName);
 const isDbExist = fs.existsSync(dbPath);
 
 // Create a new database instance
-const db = new sqlite3.Database(dbPath, (err) => {
+const db = new sqlite3.Database(dbPath, (err: Error) => {
   if (err) {
     console.error('Error opening database', err);
   } else {
@@ -26,13 +26,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
         title TEXT,
         content TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-        (err) => {
-          if (err) {
-            console.error('Error creating nodes table', err);
+        (err2: Error) => {
+          if (err2) {
+            console.error('Error creating nodes table', err2);
           } else {
             console.log('Nodes table created successfully');
           }
-        });
+        },
+      );
 
       // Create semantic_relationships table
       db.run(
@@ -43,13 +44,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
         relationship_type TEXT,
         FOREIGN KEY (source_node_id) REFERENCES nodes(id),
         FOREIGN KEY (target_node_id) REFERENCES nodes(id))`,
-        (err) => {
+        (err3: Error) => {
           if (err) {
-            console.error('Error creating semantic_relationships table', err);
+            console.error('Error creating semantic_relationships table', err3);
           } else {
             console.log('Relationships table created successfully');
           }
-        });
+        },
+      );
     }
   }
 });

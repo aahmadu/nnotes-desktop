@@ -5,9 +5,14 @@ import { Note } from '../../types/notes';
 type EditorProps = {
   activeNote: Note;
   updateDatabase: (note: Note) => void;
+  onLinkMenu: () => void;
 };
 
-const Editor: React.FC<EditorProps> = ({activeNote, updateDatabase}) => {
+const Editor: React.FC<EditorProps> = function Editor({
+  activeNote,
+  updateDatabase,
+  onLinkMenu,
+}) {
   const [title, setTitle] = useState(activeNote ? activeNote.title : '');
   const [content, setContent] = useState(activeNote ? activeNote.content : '');
 
@@ -19,16 +24,16 @@ const Editor: React.FC<EditorProps> = ({activeNote, updateDatabase}) => {
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
     const updatedNote = activeNote
-        ? { ...activeNote, title: e.target.value, content: content }
-        : { title: e.target.value, content: content } as Note;
+      ? { ...activeNote, title: e.target.value, content }
+      : ({ title: e.target.value, content } as Note);
     updateDatabase(updatedNote);
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
     const updatedNote = activeNote
-      ? { ...activeNote, title: title, content: e.target.value }
-      : ({ title: title, content: e.target.value } as Note);
+      ? { ...activeNote, title, content: e.target.value }
+      : ({ title, content: e.target.value } as Note);
     updateDatabase(updatedNote);
   };
 
@@ -42,6 +47,11 @@ const Editor: React.FC<EditorProps> = ({activeNote, updateDatabase}) => {
           onChange={handleTitleChange}
           className="title-input"
         />
+        {activeNote ? (
+          <button type="button" className="link-button" onClick={onLinkMenu}>
+            Link
+          </button>
+        ) : null}
       </div>
       <div className="body-area">
         <textarea

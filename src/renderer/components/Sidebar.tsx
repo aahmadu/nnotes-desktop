@@ -1,4 +1,4 @@
-import React, { useState, FunctionComponent } from 'react';
+import { useState, FunctionComponent } from 'react';
 
 import './Sidebar.css';
 
@@ -11,7 +11,7 @@ interface SidebarProps {
   onDelete: (noteID: number) => void;
 }
 
-export const Sidebar: FunctionComponent<SidebarProps> = function Sidebar({
+const Sidebar: FunctionComponent<SidebarProps> = function Sidebar({
   notes,
   onNoteSelect,
   onNewNote,
@@ -37,7 +37,13 @@ export const Sidebar: FunctionComponent<SidebarProps> = function Sidebar({
           >
             <span>{note.title}</span>
             {hoveredNote === note.id && (
-              <button onClick={() => onDelete(note.id)} className="delete-btn">X</button>
+              <button
+                type="button"
+                onClick={() => onDelete(note.id)}
+                className="delete-btn"
+              >
+                X
+              </button>
             )}
           </li>
         ))}

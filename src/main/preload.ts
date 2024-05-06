@@ -7,7 +7,9 @@ export type Channels =
   | 'add-note'
   | 'update-note'
   | 'get-all-notes'
-  | 'delete-note';
+  | 'get-all-tags'
+  | 'delete-note'
+  | 'add-link';
 
 const electronHandler = {
   ipcRenderer: {

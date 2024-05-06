@@ -9,11 +9,14 @@ import { Note } from '../types/notes';
 
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
+import LinkMenu from './components/LinkMenu';
 
 import { debounce } from '../utils/general';
 
 function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [allTags, setallTags] = useState<string[]>([]);
+  const [showLinkMenu, setShowLinkMenu] = useState(false);
 
   const fetchNotes = async () => {
     try {
@@ -31,6 +34,22 @@ function Home() {
 
   fetchNotes();
 
+  const fetchTags = async () => {
+    try {
+      const noteResponse =
+        await window.electron.ipcRenderer.invokeMessage('get-all-tags');
+      if (noteResponse && noteResponse.success) {
+        setallTags(noteResponse.allTags);
+      } else {
+        console.error('Failed to get tags:', noteResponse.error);
+      }
+    } catch (error) {
+      console.error('Error when getting tags:', (error as Error).message);
+    }
+  };
+
+  fetchTags();
+
   const [activeNote, setActiveNote] = useState<Note | null>(null);
 
   const handleNoteSelect = (note: Note) => {
@@ -43,6 +62,64 @@ function Home() {
 
   const handleDeleteNote = (noteID: number) => {
     window.electron.ipcRenderer.sendMessage('delete-note', { noteID });
+  };
+
+  const handleClickLinkMenu = () => {
+    console.log(allTags[0]);
+    setShowLinkMenu(true);
+  };
+
+  const handleCancelLinkMenu = () => {
+    console.log('Cancel link menu');
+    setShowLinkMenu(false);
+  };
+
+  const handleCreateLink = async (linkOption: string, note: Note, linkTag: string) => {
+    let sourceNodeId: number;
+    let targetNodeId: number;
+    let noteID = note.id;
+    if (note.id === undefined) {
+      try {
+        const result = await handleAddNote(note);
+        noteID = result.id;
+      } catch (error) {
+        console.error('Error when adding note:', error);
+      }
+    }
+
+    if (linkOption === 'To') {
+      sourceNodeId = activeNote!.id;
+      targetNodeId = noteID;
+    } else {
+      sourceNodeId = noteID;
+      targetNodeId = activeNote!.id;
+    }
+    try {
+      console.log('Create link:', sourceNodeId, targetNodeId, linkTag);
+      window.electron.ipcRenderer.sendMessage('add-link', {
+        sourceNodeId,
+        targetNodeId,
+        relationshipType: linkTag,
+      });
+    } catch (error) {
+      console.error('Error when adding link:', (error as Error).message);
+    }
+    setShowLinkMenu(false);
+  };
+
+  const handleAddNote = async (note: Note) => {
+    try {
+      const response = await window.electron.ipcRenderer.invokeMessage(
+        'add-note',
+        { updatedNote: note },
+      );
+      if (response && response.success) {
+        return(response.activeNote);
+      }
+      console.error('Failed to add note:', response.error);
+    } catch (error) {
+      console.error('Error when adding note:', (error as Error).message);
+    }
   };
 
   // Function to update database with content
@@ -77,27 +154,38 @@ function Home() {
   ); // Debounce for 2 seconds
 
   return (
-    <PanelGroup className="container" direction="horizontal">
-      <Panel defaultSize={30} minSize={20}>
-        <Sidebar
-          notes={notes}
-          onNoteSelect={handleNoteSelect}
-          onNewNote={handleNewNote}
-          onDelete={handleDeleteNote}
+    <>
+      {showLinkMenu && (
+        <LinkMenu
+          allNotes={notes}
+          allTags={allTags}
+          onCancelMenu={handleCancelLinkMenu}
+          onCreateLink={handleCreateLink}
         />
-      </Panel>
-      <PanelResizeHandle />
-      <Panel minSize={30}>
-        <Editor
-          activeNote={activeNote as Note}
-          updateDatabase={updateDatabase}
-        />
-      </Panel>
-      <PanelResizeHandle />
-      <Panel defaultSize={30} minSize={20}>
-        right
-      </Panel>
-    </PanelGroup>
+      )}
+      <PanelGroup className="container" direction="horizontal">
+        <Panel defaultSize={30} minSize={20}>
+          <Sidebar
+            notes={notes}
+            onNoteSelect={handleNoteSelect}
+            onNewNote={handleNewNote}
+            onDelete={handleDeleteNote}
+          />
+        </Panel>
+        <PanelResizeHandle />
+        <Panel minSize={30}>
+          <Editor
+            activeNote={activeNote as Note}
+            updateDatabase={updateDatabase}
+            onLinkMenu={handleClickLinkMenu}
+          />
+        </Panel>
+        <PanelResizeHandle />
+        <Panel defaultSize={30} minSize={20}>
+          right
+        </Panel>
+      </PanelGroup>
+    </>
   );
 }
 
