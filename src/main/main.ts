@@ -67,6 +67,7 @@ ipcMain.on('update-note', async (event, note) => {
 });
 
 
+
 // Handle IPC event for reading all notes
 ipcMain.handle('get-all-notes', async (event) => {
   return new Promise((resolve, reject) => {
@@ -98,11 +99,11 @@ ipcMain.on('delete-note', (event, note) => {
 
 // Handle IPC event for adding a semantic link
 ipcMain.on('add-link', (event, link) => {
-  const { sourceNodeId, targetNodeId, relationshipType } = link;
+  const { sourceID, targetID, linkTag } = link;
   console.log(link);
   db.run(
-    'INSERT INTO relationships (source_node_id, target_node_id, relationship_type) VALUES (?, ?, ?)',
-    [sourceNodeId, targetNodeId, relationshipType],
+    'INSERT INTO links (sourceID, targetID, linkTag) VALUES (?, ?, ?)',
+    [sourceID, targetID, linkTag],
     function (err) {
       if (err) {
         event.reply('add-link-response', {
@@ -110,34 +111,31 @@ ipcMain.on('add-link', (event, link) => {
           error: err.message,
         });
       } else {
-          event.reply('add-link-response', { success: true });
+        event.reply('add-link-response', { success: true });
       }
   });
 });
 
 // Handle IPC event for getting all links
-ipcMain.handle('get-all-tags', async (event) => {
+ipcMain.handle('get-all-links', async (event) => {
   return new Promise((resolve, reject) => {
-    db.all(
-      'SELECT DISTINCT relationship_type FROM relationships',
-      (err, rows) => {
-        if (err) {
-          reject(new Error(err.message));
-        } else {
-          resolve({
-            success: true,
-            allTags: rows.map((item) => item.relationship_type),
-          });
-        }
-      },
-    );
+    db.all('SELECT * FROM links', (err, rows) => {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve({
+          success: true,
+          allLinks: rows,
+        });
+      }
+    });
   });
 });
 
 
 // Handle IPC event for deleting a semantic link
 ipcMain.on('delete-link', (event, id) => {
-  db.run('DELETE FROM relationships WHERE id = ?', id, function (err) {
+  db.run('DELETE FROM links WHERE id = ?', id, function (err) {
       if (err) {
       event.reply('delete-link-response', {
         success: false,

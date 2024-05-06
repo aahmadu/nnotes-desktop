@@ -1,23 +1,23 @@
 import { useState, FunctionComponent } from 'react';
-import { Note } from '../../types/notes';
+import { Note } from '../../types/general';
 import './LinkMenu.css';
 
 interface LinkMenuProps {
   allNotes: Note[];
-  allTags: string[];
+  allLinkTags: string[];
   onCreateLink: (linkto: string, note: Note, linkTag: string) => void;
   onCancelMenu: () => void;
 }
 
 const LinkMenu: FunctionComponent<LinkMenuProps> = function LinkMenu({
   allNotes,
-  allTags,
+  allLinkTags,
   onCreateLink,
   onCancelMenu,
 }) {
   const [linkOption, setLinkOption] = useState('To');
   const [noteOption, setNoteOption] = useState(allNotes.length > 0 ? allNotes[0] : 'new');
-  const [tagOption, setTagOption] = useState(allTags.length > 0 ? allTags[0] : 'new');
+  const [tagOption, setTagOption] = useState(allLinkTags.length > 0 ? allLinkTags[0] : 'new');
   const [newNote, setNewNote] = useState('');
   const [newTag, setNewTag] = useState('');
 
@@ -73,7 +73,7 @@ const LinkMenu: FunctionComponent<LinkMenuProps> = function LinkMenu({
       <label>
         Tag:
         <select value={tagOption} onChange={handleTagChange}>
-          {allTags.map(tag => (
+          {allLinkTags.map(tag => (
             <option key={tag} value={tag}>{tag}</option>
           ))}
           <option value="new">New</option>

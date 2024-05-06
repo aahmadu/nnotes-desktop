@@ -2,7 +2,7 @@ import { useState, FunctionComponent } from 'react';
 
 import './Sidebar.css';
 
-import { Note } from '../../types/notes';
+import { Note } from '../../types/general';
 
 interface SidebarProps {
   notes: Note[];

@@ -7,7 +7,7 @@ export type Channels =
   | 'add-note'
   | 'update-note'
   | 'get-all-notes'
-  | 'get-all-tags'
+  | 'get-all-links'
   | 'delete-note'
   | 'add-link';
 

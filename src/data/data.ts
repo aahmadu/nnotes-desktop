@@ -37,13 +37,13 @@ const db = new sqlite3.Database(dbPath, (err: Error) => {
 
       // Create semantic_relationships table
       db.run(
-        `CREATE TABLE relationships (
+        `CREATE TABLE links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_node_id INTEGER,
-        target_node_id INTEGER,
-        relationship_type TEXT,
-        FOREIGN KEY (source_node_id) REFERENCES nodes(id),
-        FOREIGN KEY (target_node_id) REFERENCES nodes(id))`,
+        sourceID INTEGER,
+        targetID INTEGER,
+        linkTag TEXT,
+        FOREIGN KEY (sourceID) REFERENCES nodes(id),
+        FOREIGN KEY (targetID) REFERENCES nodes(id))`,
         (err3: Error) => {
           if (err) {
             console.error('Error creating semantic_relationships table', err3);
@@ -56,4 +56,4 @@ const db = new sqlite3.Database(dbPath, (err: Error) => {
   }
 });
 
-module.exports = db;
+export default db;

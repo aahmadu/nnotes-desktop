@@ -5,17 +5,19 @@ import './App.css';
 
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
-import { Note } from '../types/notes';
+import { Note, Link } from '../types/general';
 
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
+import GraphView from './components/GraphView';
 
 import { debounce } from '../utils/general';
 
 function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [allTags, setallTags] = useState<string[]>([]);
+  const [allLinks, setallLinks] = useState<Link[]>([]);
+  const [allLinkTags, setallLinkTags] = useState<string[]>([]);
   const [showLinkMenu, setShowLinkMenu] = useState(false);
 
   const fetchNotes = async () => {
@@ -34,12 +36,17 @@ function Home() {
 
   fetchNotes();
 
-  const fetchTags = async () => {
+  const fetchLinks = async () => {
     try {
       const noteResponse =
-        await window.electron.ipcRenderer.invokeMessage('get-all-tags');
+        await window.electron.ipcRenderer.invokeMessage('get-all-links');
       if (noteResponse && noteResponse.success) {
-        setallTags(noteResponse.allTags);
+        setallLinks(noteResponse.allLinks);
+        setallLinkTags(
+          Array.from(
+            new Set(noteResponse.allLinks.map((link) => link.linkTag)),
+          ),
+        );
       } else {
         console.error('Failed to get tags:', noteResponse.error);
       }
@@ -48,7 +55,7 @@ function Home() {
     }
   };
 
-  fetchTags();
+  fetchLinks();
 
   const [activeNote, setActiveNote] = useState<Note | null>(null);
 
@@ -65,7 +72,7 @@ function Home() {
   };
 
   const handleClickLinkMenu = () => {
-    console.log(allTags[0]);
+    console.log(allLinks[0]);
     setShowLinkMenu(true);
   };
 
@@ -75,8 +82,8 @@ function Home() {
   };
 
   const handleCreateLink = async (linkOption: string, note: Note, linkTag: string) => {
-    let sourceNodeId: number;
-    let targetNodeId: number;
+    let sourceID: number;
+    let targetID: number;
     let noteID = note.id;
     if (note.id === undefined) {
       try {
@@ -88,18 +95,18 @@ function Home() {
     }
 
     if (linkOption === 'To') {
-      sourceNodeId = activeNote!.id;
-      targetNodeId = noteID;
+      sourceID = activeNote!.id;
+      targetID = noteID;
     } else {
-      sourceNodeId = noteID;
-      targetNodeId = activeNote!.id;
+      sourceID = noteID;
+      targetID = activeNote!.id;
     }
     try {
-      console.log('Create link:', sourceNodeId, targetNodeId, linkTag);
+      console.log('Create link:', sourceID, targetID, linkTag);
       window.electron.ipcRenderer.sendMessage('add-link', {
-        sourceNodeId,
-        targetNodeId,
-        relationshipType: linkTag,
+        sourceID,
+        targetID,
+        linkTag,
       });
     } catch (error) {
       console.error('Error when adding link:', (error as Error).message);
@@ -158,7 +165,7 @@ function Home() {
       {showLinkMenu && (
         <LinkMenu
           allNotes={notes}
-          allTags={allTags}
+          allLinkTags={allLinkTags}
           onCancelMenu={handleCancelLinkMenu}
           onCreateLink={handleCreateLink}
         />
@@ -182,7 +189,7 @@ function Home() {
         </Panel>
         <PanelResizeHandle />
         <Panel defaultSize={30} minSize={20}>
-          right
+          <GraphView allNotes={notes} allLinks={allLinks} />
         </Panel>
       </PanelGroup>
     </>

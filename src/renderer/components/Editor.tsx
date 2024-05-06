@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Editor.css';
-import { Note } from '../../types/notes';
+import { Note } from '../../types/general';
 
 type EditorProps = {
   activeNote: Note;
