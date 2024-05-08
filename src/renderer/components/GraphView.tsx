@@ -15,70 +15,63 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
   const d3Container = useRef(null);
 
   useEffect(() => {
-    const linksData = allLinks.map(link => ({
+    const linksData = allLinks.map((link) => ({
       source: link.sourceID,
       target: link.targetID,
       linkTag: link.linkTag,
     }));
 
-    function drawGraph(nodes, links) {
-      console.log(allLinks)
-      const svg = d3.select(d3Container.current);
-      svg.attr('width', '800').attr('height', '600'); // set the size of the SVG element
+    function drawGraph(
+      nodes: Note[],
+      links: {
+        source: number;
+        target: number;
+        linkTag: string;
+      }[],
+    ) {
+      const svg = d3.select(d3Container.current)
+        .attr('width', '800')
+        .attr('height', '600');
 
       // Clear SVG before redraw
-      svg.selectAll("*").remove();
+      svg.selectAll('*').remove();
 
-      // Create a simulation for positioning graph elements
-      const simulation = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id(d => d.id))
-        .force("charge", d3.forceManyBody().strength(-400))
-        .force("center", d3.forceCenter(400 / 2, 600 / 2));
+      const distanceBtwNodes = -200;
 
+      // Initialize the simulation with nodes and link forces.
+      const simulation = d3
+        .forceSimulation(nodes)
+        .force(
+          'link',
+          d3.forceLink(links).id((d) => d.id),
+        )
+        .force('charge', d3.forceManyBody().strength(distanceBtwNodes))
+        .force('center', d3.forceCenter(200 / 2, 600 / 2));
+
+      // Create SVG lines for links and circles for nodes.
       const link = svg.append("g")
-        .attr("stroke", "#999")
+        .attr("stroke", "#B0B0B0")
         .attr("stroke-opacity", 0.6)
         .selectAll("line")
         .data(links)
         .join("line")
-        .attr("stroke-width", d => Math.sqrt(d.value))
-        .attr("marker-end", "url(#arrowhead)");
+        .attr("stroke-width", d => Math.sqrt(d.value));
 
-      const node = svg.append("g")
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 1.5)
-        .selectAll("circle")
-        .data(nodes)
-        .join("circle")
-        .attr("r", 5)
-        .attr("fill", colorNode)
+      const node = svg.append('g').selectAll('g').data(nodes).join('g');
+
+      node
+        .append('circle')
+        .attr('r', 4)
+        .attr('fill', '#B0B0B0')
         .call(drag(simulation));
 
-      node.append("title")
-          .text(d => d.title);
-
-      const linkText = svg.append("g")
-          .selectAll("text")
-          .data(links)
-          .join("text")
-          .attr("font-size", "10px")
-          .attr("text-anchor", "middle")
-          .attr("dominant-baseline", "middle")
-          .text(d => `${d.linkTag} ${d.source < d.target ? '→' : '←'}`);
-
-      simulation.on("tick", () => {
-        link
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
-        node
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y);
-        linkText
-            .attr("x", d => (d.source.x + d.target.x) / 2)
-            .attr("y", d => (d.source.y + d.target.y) / 2);
-      });
+      node
+        .append('text')
+        .text((d) => d.title)
+        .style('fill', 'black')
+        .style('font-size', '12px')
+        .attr('dx', 10)
+        .attr('dy', '.35em');
 
       function drag(simulation) {
         function dragstarted(event) {
@@ -99,21 +92,25 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
         }
 
         return d3.drag()
-          .on("start", dragstarted)
-          .on("drag", dragged)
-          .on("end", dragended);
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended);
       }
 
-      function colorNode(d) {
-        return d.group === '1' ? 'red' : 'blue'; // Customize as per your node properties
-      }
+      simulation.on('tick', () => {
+        link
+          .attr('x1', (d) => d.source.x)
+          .attr('y1', (d) => d.source.y)
+          .attr('x2', (d) => d.target.x)
+          .attr('y2', (d) => d.target.y);
+
+        node.attr('transform', d => `translate(${d.x}, ${d.y})`);
+      });
     }
     drawGraph(allNotes, linksData);
   }, []);
 
-  return (
-    <svg ref={d3Container} style={{ width: '100%', height: '100%' }} />
-  );
+  return <svg ref={d3Container} style={{ width: '100%', height: '100%' }} />;
 };
 
 export default GraphView;

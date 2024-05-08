@@ -66,8 +66,6 @@ ipcMain.on('update-note', async (event, note) => {
 });
 });
 
-
-
 // Handle IPC event for reading all notes
 ipcMain.handle('get-all-notes', async (event) => {
   return new Promise((resolve, reject) => {

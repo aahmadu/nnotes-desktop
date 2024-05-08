@@ -1,4 +1,4 @@
-import { useState, FunctionComponent } from 'react';
+import React, { useState, FunctionComponent } from 'react';
 import { Note } from '../../types/general';
 import './LinkMenu.css';
 
@@ -16,8 +16,12 @@ const LinkMenu: FunctionComponent<LinkMenuProps> = function LinkMenu({
   onCancelMenu,
 }) {
   const [linkOption, setLinkOption] = useState('To');
-  const [noteOption, setNoteOption] = useState(allNotes.length > 0 ? allNotes[0] : 'new');
-  const [tagOption, setTagOption] = useState(allLinkTags.length > 0 ? allLinkTags[0] : 'new');
+  const [noteOption, setNoteOption] = useState(
+    allNotes.length > 0 ? allNotes[0].id.toString() : 'new',
+  );
+  const [tagOption, setTagOption] = useState(
+    allLinkTags.length > 0 ? allLinkTags[0] : 'new',
+  );
   const [newNote, setNewNote] = useState('');
   const [newTag, setNewTag] = useState('');
 
@@ -42,9 +46,9 @@ const LinkMenu: FunctionComponent<LinkMenuProps> = function LinkMenu({
   };
 
   const onClickCreate = () => {
-    console.log('Creating link...');
+    console.log('Creating link...', noteOption, allNotes.find(note => note.id === +noteOption));
     const finalNoteOption =
-      noteOption === 'new' ? { title: newNote, content: '' } : noteOption;
+      noteOption === 'new' ? { title: newNote, content: '' } : allNotes.find(note => note.id === +noteOption);
     const finalTagOption = tagOption === 'new' ? newTag : tagOption;
     onCreateLink(linkOption, finalNoteOption, finalTagOption);
   };
@@ -62,24 +66,36 @@ const LinkMenu: FunctionComponent<LinkMenuProps> = function LinkMenu({
         Note:
         <select value={noteOption} onChange={handleNoteChange}>
           {allNotes.map(note => (
-            <option key={note.id} value={note.id}>{note.title}</option>
+            <option key={note.id} value={note.id}>
+              {note.title}
+            </option>
           ))}
           <option value="new">New</option>
         </select>
         {noteOption === 'new' && (
-          <input type="text" value={newNote} onChange={event => setNewNote(event.target.value)} />
+          <input
+            type="text"
+            value={newNote}
+            onChange={(event) => setNewNote(event.target.value)}
+          />
         )}
       </label>
       <label>
         Tag:
         <select value={tagOption} onChange={handleTagChange}>
-          {allLinkTags.map(tag => (
-            <option key={tag} value={tag}>{tag}</option>
+          {allLinkTags.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
           ))}
           <option value="new">New</option>
         </select>
         {tagOption === 'new' && (
-          <input type="text" value={newTag} onChange={event => setNewTag(event.target.value)} />
+          <input
+            type="text"
+            value={newTag}
+            onChange={(event) => setNewTag(event.target.value)}
+          />
         )}
       </label>
       <button type="button" onClick={onClickCreate}>
