@@ -34,7 +34,7 @@ const SigmaGraph: FunctionComponent<GraphViewProps> = function GraphView({
         settings: {
           attraction: 0.0005,
           repulsion: 0.1,
-          gravity: 0.0001,
+          gravity: 0.006, // 0.0001
           inertia: 0.6,
           maxMove: 200,
         },

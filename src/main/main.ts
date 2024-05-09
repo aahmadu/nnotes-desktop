@@ -9,13 +9,14 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, IpcMainEvent } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
 import db from '../data/data';
+import { Note, Link } from '../types/general';
 
 class AppUpdater {
   constructor() {
@@ -33,116 +34,210 @@ ipcMain.on('ipc-example', async (event, arg) => {
   event.reply('ipc-example', msgTemplate('pong'));
 });
 
-// Handle IPC event for adding a new note
-ipcMain.handle('add-note', async (event, note) => {
-  const { updatedNote } = note;
+const insertNote = (note: Note) => {
+  const sql = 'INSERT INTO nodes (title, content) VALUES (?, ?)';
   return new Promise((resolve, reject) => {
-    db.run("INSERT INTO nodes (title, content) VALUES (?, ?)", [updatedNote.title, updatedNote.content], function(err) {
-        if (err) {
-            reject(new Error(err.message)); // Reject the promise with an error
-        } else {
-          db.get("SELECT * FROM nodes WHERE id = ?", [this.lastID], (err, row) => {
-            if (err) {
-                reject(new Error(err.message));
-            } else {
-                resolve({ success: true, activeNote: row });
-            }
-        });
-        }
+    db.run(sql, [note.title, note.content], function (this: any, err: Error) {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve(this.lastID); // 'this' refers to the statement context
+      }
     });
   });
+};
+
+const fetchNotes = (noteID?: number): Promise<any[]> => {
+  let sql = 'SELECT * FROM nodes';
+  const params: number[] = [];
+
+  // If a noteID is provided, modify the query to fetch only that specific note
+  if (noteID) {
+    sql += ' WHERE id = ?';
+    params.push(noteID);
+  }
+
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err: Error, rows: Note[]) => {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        // If noteID is provided, there should ideally be only one note or none
+        const result = noteID ? rows[0] : rows;
+        resolve(result as any[]); // Cast result to any[]
+      }
+    });
+  });
+};
+
+const updateNote = (updatedNote: Note) => {
+  const sql = 'UPDATE nodes SET title = ?, content = ? WHERE id = ?';
+  return new Promise((resolve, reject) => {
+    db.run(
+      sql,
+      [updatedNote.title, updatedNote.content, updatedNote.id],
+      function (this: any, err: Error) {
+        if (err) {
+          reject(new Error(err.message));
+        } else {
+          resolve(this.changes); // 'this' refers to the statement context
+        }
+      },
+    );
+  });
+};
+
+const deleteNote = async (id: number): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM nodes WHERE id = ?', [id], (err: Error) => {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve();
+      }
+    });
+  });
+};
+
+const addLink = async (link: Link): Promise<void> => {
+  const { sourceID, targetID, linkTag } = link;
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT INTO links (sourceID, targetID, linkTag) VALUES (?, ?, ?)',
+      [sourceID, targetID, linkTag],
+      (err: Error) => {
+        if (err) {
+          reject(new Error(err.message));
+        } else {
+          resolve();
+        }
+      },
+    );
+  });
+};
+
+const getAllLinks = async (): Promise<{
+  success: boolean;
+  allLinks?: any[];
+  error?: string;
+}> => {
+  return new Promise((resolve, reject) => {
+    db.all('SELECT * FROM links', (err: Error, rows: Link[]) => {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve({ success: true, allLinks: rows });
+      }
+    });
+  });
+};
+
+const deleteLink = async (id: number): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM links WHERE id = ?', id, (err: Error) => {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve();
+      }
+    });
+  });
+};
+
+ipcMain.handle('add-note', async (_event, { newNote }) => {
+  try {
+    const id = await insertNote(newNote);
+    const activeNote = await fetchNotes(id as number);
+    return { success: true, activeNote };
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
 });
 
-// Handle IPC event for updating a note
-ipcMain.on('update-note', async (event, note) => {
-  const { updatedNote } = note;
-  db.run("UPDATE nodes SET title = ?, content = ? WHERE id = ?", [updatedNote.title, updatedNote.content, updatedNote.id], function(err) {
-    if (err) {
-        event.reply('update-note-response', { success: false, error: err.message });
-    } else {
-      console.log(updatedNote);
-      event.reply('update-note-response', { success: true });
-    }
-});
+ipcMain.on('update-note', async (event, { updatedNote }) => {
+  try {
+    const changes = await updateNote(updatedNote);
+    console.log('Updated note:', updatedNote);
+    event.reply('update-note-response', { success: true, changes });
+  } catch (error: any) {
+    console.error('Update failed:', error);
+    event.reply('update-note-response', {
+      success: false,
+      error: error.message,
+    });
+  }
 });
 
 // Handle IPC event for reading all notes
-ipcMain.handle('get-all-notes', async (event) => {
-  return new Promise((resolve, reject) => {
-    db.all("SELECT * FROM nodes", (err, rows) => {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve({ success: true, notes: rows });
-      }
-    });
-  });
-});
+ipcMain.handle(
+  'get-all-notes',
+  async (): Promise<{
+    success: boolean;
+    notes?: any[];
+    error: Error | undefined;
+  }> => {
+    try {
+      const notes = await fetchNotes();
+      return { success: true, notes, error: undefined };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+);
 
-// Handle IPC event for deleting a note
-ipcMain.on('delete-note', (event, note) => {
-  const { noteID } = note;
-  db.run("DELETE FROM nodes WHERE id = ?", noteID, function(err) {
-      if (err) {
+// IPC event for deleting a note
+ipcMain.on(
+  'delete-note',
+  async (event: IpcMainEvent, { noteID }: { noteID: number }) => {
+    try {
+      await deleteNote(noteID);
+      event.reply('delete-note-response', { success: true });
+    } catch (error: any) {
       event.reply('delete-note-response', {
         success: false,
-        error: err.message,
+        error: error.message,
       });
-      } else {
-          event.reply('delete-note-response', { success: true });
-      }
-  });
-});
+      console.error('Error deleting note:', error);
+    }
+  },
+);
 
-
-// Handle IPC event for adding a semantic link
-ipcMain.on('add-link', (event, link) => {
-  const { sourceID, targetID, linkTag } = link;
-  console.log(link);
-  db.run(
-    'INSERT INTO links (sourceID, targetID, linkTag) VALUES (?, ?, ?)',
-    [sourceID, targetID, linkTag],
-    function (err) {
-      if (err) {
-        event.reply('add-link-response', {
-          success: false,
-          error: err.message,
-        });
-      } else {
-        event.reply('add-link-response', { success: true });
-      }
-  });
-});
-
-// Handle IPC event for getting all links
-ipcMain.handle('get-all-links', async (event) => {
-  return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM links', (err, rows) => {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve({
-          success: true,
-          allLinks: rows,
-        });
-      }
+// IPC event for adding a link
+ipcMain.on('add-link', async (event: IpcMainEvent, link: Link) => {
+  try {
+    await addLink(link);
+    event.reply('add-link-response', { success: true });
+  } catch (error: any) {
+    event.reply('add-link-response', {
+      success: false,
+      error: error.message,
     });
-  });
+    console.error('Error adding link:', error);
+  }
 });
 
+// IPC event for getting all links
+ipcMain.handle('get-all-links', async () => {
+  try {
+    const result = await getAllLinks();
+    return result;
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
 
-// Handle IPC event for deleting a semantic link
-ipcMain.on('delete-link', (event, id) => {
-  db.run('DELETE FROM links WHERE id = ?', id, function (err) {
-      if (err) {
-      event.reply('delete-link-response', {
-        success: false,
-        error: err.message,
-      });
-      } else {
-          event.reply('delete-link-response', { success: true });
-      }
-  });
+// IPC event for deleting a link
+ipcMain.on('delete-link', async (event: IpcMainEvent, id: number) => {
+  try {
+    await deleteLink(id);
+    event.reply('delete-link-response', { success: true });
+  } catch (error: any) {
+    event.reply('delete-link-response', {
+      success: false,
+      error: error.message,
+    });
+    console.error('Error deleting link:', error);
+  }
 });
 
 if (process.env.NODE_ENV === 'production') {

@@ -103,6 +103,7 @@ function Home() {
 
   const handleDeleteNote = (noteID: number) => {
     window.electron.ipcRenderer.sendMessage('delete-note', { noteID });
+    fetchNotes();
   };
 
   const handleClickLinkMenu = () => {
@@ -153,7 +154,7 @@ function Home() {
     try {
       const response = await window.electron.ipcRenderer.invokeMessage(
         'add-note',
-        { updatedNote: note },
+        { newNote: note },
       );
       if (response && response.success) {
         return(response.activeNote);
@@ -172,7 +173,7 @@ function Home() {
         try {
           const response = await window.electron.ipcRenderer.invokeMessage(
             'add-note',
-            { updatedNote },
+            { newNote: updatedNote },
           );
           if (response && response.success) {
             setActiveNote(response.activeNote); // Update the noteID state with the new ID from the database
