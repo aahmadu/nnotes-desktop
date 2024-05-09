@@ -227,9 +227,9 @@ function Home() {
         </Panel>
         <PanelResizeHandle />
         <Panel defaultSize={30} minSize={20}>
-          {/* <GraphView allNotes={notes} allLinks={allLinks} /> */}
+          <GraphView allNotes={notes} allLinks={allLinks} />
           {/* <TreeView treeData={createTree(notes[0], notes, allLinks)} /> */}
-          <SigmaGraph allNotes={notes} allLinks={allLinks} />
+          {/* <SigmaGraph allNotes={notes} allLinks={allLinks} /> */}
         </Panel>
       </PanelGroup>
     </>

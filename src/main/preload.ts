@@ -33,12 +33,6 @@ const electronHandler = {
     once(channel: Channels, func: (...args: unknown[]) => void) {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
-    // Removing specific listener from a channel
-    // removeListener: (channel, func) => {
-    //   if (validChannels.includes(channel)) {
-    //     ipcRenderer.removeListener(channel, func);
-    //   }
-    // },
   },
 };
 

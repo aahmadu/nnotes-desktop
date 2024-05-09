@@ -1,7 +1,7 @@
 import { useRef, useEffect, FunctionComponent } from 'react';
 import Graph from 'graphology';
 import Sigma from 'sigma';
-import ForceSupervisor from 'graphology-layout-force/worker';
+import * as d3 from 'd3-force';
 import { Note, Link } from '../../types/general';
 
 type SigmaGraphProps = {
@@ -9,107 +9,112 @@ type SigmaGraphProps = {
   allLinks: Link[];
 };
 
-const SigmaGraph: FunctionComponent<SigmaGraphProps> = function GraphView({
+const SigmaGraph: FunctionComponent<SigmaGraphProps> = function SigmaGraph({
   allNotes,
   allLinks,
 }) {
-  const containerRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (containerRef.current) {
-      // Initialize sigma with the container and graph data
       const graph = new Graph();
-      allNotes.forEach((node) =>
-        graph.addNode(node.id, { label: node.title, size: 6, color: 'gray' }),
+      allNotes.forEach(node =>
+        graph.addNode(node.id, {
+          label: node.title,
+          size: 6,
+          color: 'gray',
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+        })
       );
-      allLinks.forEach((edge) =>
+      allLinks.forEach(edge =>
         graph.addEdge(edge.sourceID, edge.targetID, {
           type: 'arrow',
           label: edge.linkTag,
-          size: 2,
-          color: 'gray',
-        }),
+          size: 3,
+          color: 'rgba(128, 128, 128, 0.7)',
+          weight: 0,
+        })
       );
-      // graph.addNode("1", { label: "Node 1", size: 10, color: "blue" });
-      // graph.addNode("2", { label: "Node 2", size: 20, color: "red" });
-      // graph.addEdge("1", "2", { size: 5, color: "purple" });
 
-      graph.nodes().forEach((node, i) => {
-        const angle = (i * 2 * Math.PI) / graph.order;
-        graph.setNodeAttribute(node, 'x', 100 * Math.cos(angle));
-        graph.setNodeAttribute(node, 'y', 100 * Math.sin(angle));
-      });
+      const nodes = graph.nodes().map(node => ({
+        ...graph.getNodeAttributes(node),
+        id: node
+      }));
+
+      const links = graph.edges().map(edge => ({
+        source: graph.source(edge),
+        target: graph.target(edge),
+        ...graph.getEdgeAttributes(edge)
+      }));
+
+      const simulation = d3.forceSimulation(nodes)
+        .force("link", d3.forceLink(links).id(d => d.id))
+        .force("charge", d3.forceManyBody().strength(-500))
+        .force("center", d3.forceCenter(100, 100))
+        .force("radial", d3.forceRadial(100, containerRef.current.clientWidth / 2, containerRef.current.clientHeight / 2).strength(0.4))
+        .on("tick", () => {
+          nodes.forEach(node => {
+            graph.setNodeAttribute(node.id, 'x', node.x);
+            graph.setNodeAttribute(node.id, 'y', node.y);
+          });
+        });
 
       const sigmaInstance = new Sigma(graph, containerRef.current, {
         renderEdgeLabels: true,
       });
-      const layout = new ForceSupervisor(graph, {
-        isNodeFixed: 'fixed',
-        settings: {
-          attraction: 0.0005,
-          repulsion: 0.1,
-          gravity: 0.006, // 0.0001
-          inertia: 0.6,
-          maxMove: 200,
-        },
-      });
-      // const layout = forceAtlas2(graph, {maxIterations: 50});
-      layout.start();
 
-      //
-      // Drag'n'drop feature
-      // ~~~~~~~~~~~~~~~~~~~
-      //
-
-      // State for drag'n'drop
-      let draggedNode: string | null = null;
-      let isDragging = false;
-
-      // On mouse down on a node
-      //  - we enable the drag mode
-      //  - save in the dragged node in the state
-      //  - highlight the node
-      //  - disable the camera so its state is not updated
-      sigmaInstance.on('downNode', (e) => {
-        isDragging = true;
-        draggedNode = e.node;
-        graph.setNodeAttribute(draggedNode, 'highlighted', true);
+      // Drag handling
+      let draggingNode = null;
+      sigmaInstance.on('downNode', (event) => {
+        draggingNode = event.node;
+        const node = simulation.nodes().find(n => n.id === draggingNode);
+        node.fx = node.x;
+        node.fy = node.y;
+        simulation.alphaTarget(0.3).restart();
+        // graph.setNodeAttribute(draggingNode, 'highlighted', true);
       });
 
-      // On mouse move, if the drag mode is enabled, we change the position of the draggedNode
-      sigmaInstance.getMouseCaptor().on('mousemovebody', (e) => {
-        if (!isDragging || !draggedNode) return;
+      sigmaInstance.getMouseCaptor().on('mousemovebody', (event) => {
+        if (draggingNode) {
+          const pos = sigmaInstance.viewportToGraph(event);
+          const node = simulation.nodes().find(n => n.id === draggingNode);
+          if (node) {
+            node.fx = pos.x;
+            node.fy = pos.y;
+          }
+          // graph.setNodeAttribute(draggingNode, 'x', pos.x);
+          // graph.setNodeAttribute(draggingNode, 'y', pos.y);
 
-        // Get new position of node
-        const pos = sigmaInstance.viewportToGraph(e);
-
-        graph.setNodeAttribute(draggedNode, 'x', pos.x);
-        graph.setNodeAttribute(draggedNode, 'y', pos.y);
-
-        // Prevent sigma to move camera:
-        e.preventSigmaDefault();
-        e.original.preventDefault();
-        e.original.stopPropagation();
-      });
-
-      // On mouse up, we reset the autoscale and the dragging mode
-      sigmaInstance.getMouseCaptor().on('mouseup', () => {
-        if (draggedNode) {
-          graph.removeNodeAttribute(draggedNode, 'highlighted');
+          // Prevent sigma to move camera:
+          event.preventSigmaDefault();
+          event.original.preventDefault();
+          event.original.stopPropagation();
         }
-        isDragging = false;
-        draggedNode = null;
       });
 
-      // Disable the autoscale at the first down interaction
+      sigmaInstance.getMouseCaptor().on('mouseup', () => {
+        if (draggingNode) {
+          graph.removeNodeAttribute(draggingNode, 'highlighted');
+          const node = simulation.nodes().find(n => n.id === draggingNode);
+          node.fx = null;
+          node.fy = null;
+          draggingNode = null;
+          simulation.alphaTarget(0).restart();
+        }
+      });
+
       sigmaInstance.getMouseCaptor().on('mousedown', () => {
         if (!sigmaInstance.getCustomBBox())
           sigmaInstance.setCustomBBox(sigmaInstance.getBBox());
       });
-      // Clean-up function
-      return () => sigmaInstance.kill();
+
+      return () => {
+        sigmaInstance.kill();
+        simulation.stop();
+      };
     }
-  }, [allNotes, allLinks]); // Re-run effect if nodes or edges change
+  }, [allNotes, allLinks]);
 
   return <div ref={containerRef} style={{ height: '100vh', width: '100%' }} />;
 };
