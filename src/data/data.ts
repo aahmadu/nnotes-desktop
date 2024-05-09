@@ -1,9 +1,16 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
 const sqlite3 = require('sqlite3').verbose();
-const fs = require('fs');
-const path = require('path');
 
 // Define path for SQLite database
-const googleDrivePath = 'G:\\My Drive\\NNotes';
+let googleDrivePath;
+if (os.platform() === 'darwin') {
+  googleDrivePath = '/Users/ahmedahmadu/Google Drive/NNotes/';
+} else {
+  googleDrivePath = 'G:\\My Drive\\NNotes';
+}
 const dbName = 'notesdb.sqlite';
 const dbPath = path.join(googleDrivePath, dbName);
 

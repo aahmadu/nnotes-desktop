@@ -1,10 +1,15 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect, FunctionComponent } from 'react';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import ForceSupervisor from 'graphology-layout-force/worker';
-import forceAtlas2 from 'graphology-layout-forceatlas2';
+import { Note, Link } from '../../types/general';
 
-const SigmaGraph: FunctionComponent<GraphViewProps> = function GraphView({
+type SigmaGraphProps = {
+  allNotes: Note[];
+  allLinks: Link[];
+};
+
+const SigmaGraph: FunctionComponent<SigmaGraphProps> = function GraphView({
   allNotes,
   allLinks,
 }) {
@@ -14,8 +19,17 @@ const SigmaGraph: FunctionComponent<GraphViewProps> = function GraphView({
     if (containerRef.current) {
       // Initialize sigma with the container and graph data
       const graph = new Graph();
-      allNotes.forEach(node => graph.addNode(node.id, { label: node.title, size: 6, color: "gray" }));
-      allLinks.forEach(edge => graph.addEdge(edge.sourceID, edge.targetID, { type: "arrow", label: edge.linkTag, size: 2, color: "gray" }));
+      allNotes.forEach((node) =>
+        graph.addNode(node.id, { label: node.title, size: 6, color: 'gray' }),
+      );
+      allLinks.forEach((edge) =>
+        graph.addEdge(edge.sourceID, edge.targetID, {
+          type: 'arrow',
+          label: edge.linkTag,
+          size: 2,
+          color: 'gray',
+        }),
+      );
       // graph.addNode("1", { label: "Node 1", size: 10, color: "blue" });
       // graph.addNode("2", { label: "Node 2", size: 20, color: "red" });
       // graph.addEdge("1", "2", { size: 5, color: "purple" });
@@ -41,8 +55,6 @@ const SigmaGraph: FunctionComponent<GraphViewProps> = function GraphView({
       });
       // const layout = forceAtlas2(graph, {maxIterations: 50});
       layout.start();
-
-
 
       //
       // Drag'n'drop feature

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, FunctionComponent } from 'react';
 import './Editor.css';
 import { Note } from '../../types/general';
 
@@ -8,7 +8,7 @@ type EditorProps = {
   onLinkMenu: () => void;
 };
 
-const Editor: React.FC<EditorProps> = function Editor({
+const Editor: FunctionComponent<EditorProps> = function Editor({
   activeNote,
   updateDatabase,
   onLinkMenu,

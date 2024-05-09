@@ -7,9 +7,9 @@ export type Channels =
   | 'add-note'
   | 'update-note'
   | 'get-all-notes'
-  | 'get-all-links'
   | 'delete-note'
-  | 'add-link';
+  | 'add-link'
+  | 'get-all-links';
 
 const electronHandler = {
   ipcRenderer: {
@@ -34,11 +34,11 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
     // Removing specific listener from a channel
-    removeListener: (channel, func) => {
-      if (validChannels.includes(channel)) {
-        ipcRenderer.removeListener(channel, func);
-      }
-    },
+    // removeListener: (channel, func) => {
+    //   if (validChannels.includes(channel)) {
+    //     ipcRenderer.removeListener(channel, func);
+    //   }
+    // },
   },
 };
 
