@@ -12,19 +12,18 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
   allNotes,
   allLinks,
 }) {
+  const viewContainer = useRef(null);
   const d3Container = useRef(null);
   const width = 227;
   const height = 691;
 
   useEffect(() => {
-    const linksData = allLinks.map((link) => ({
+    const nodes = allNotes.map((d) => ({ ...d }));
+    const links = allLinks.map((link) => ({
       source: link.sourceID,
       target: link.targetID,
       linkTag: link.linkTag,
     }));
-
-    const nodes = allNotes.map((d) => ({ ...d }));
-    const links = linksData.map((d) => ({ ...d }));
 
     // Create a simulation with several forces.
     const simulation = d3
@@ -36,28 +35,60 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .force('charge', d3.forceManyBody().strength(-100))
       .force('x', d3.forceX())
       .force('y', d3.forceY());
-    const textDistance = 10;
+
+    const textDistance = 4;
     function zoomed(event) {
-      const currentZoomScale = d3.zoomTransform(svg.node()).k;
-      const adjustedTextDistance = textDistance / currentZoomScale;
+      const { transform } = event;
+      const currentZoomScale = transform.k;
+      const adjustedTextDistance = textDistance;// / currentZoomScale;
+
       if (currentZoomScale > 1) {
         // Show text only when zoom scale is less than 1
-        svg.selectAll('text')
+        svg
+          .selectAll('text')
           .style('display', 'block')
           .attr('dy', () => adjustedTextDistance);
       } else {
         // Hide text when zoom scale is 1 or greater
-        svg.selectAll('text')
-          .style('display', 'none');
+        svg.selectAll('text').style('display', 'none');
       }
-      svg.attr("transform", event.transform);
-      svg.attr('font-size', () => updateFontSize());
+
+      svg.attr(
+        'transform',
+        `translate(${transform.x - (width / 2) * (1 - transform.k)}, ${
+          transform.y - (height / 2) * (1 - transform.k)
+        }) scale(${transform.k})`,
+      );
+      //svg.attr('font-size', () => updateFontSize());
     }
     const zoom = d3
       .zoom()
       .scaleExtent([0.1, 4]) // Limit the zoom scale
-      .on("zoom", zoomed);
+      .on('zoom', zoomed)
+      .translateExtent([
+        [-Infinity, -Infinity],
+        [Infinity, Infinity],
+      ]) // Allow unlimited panning
+      .extent([
+        [-width, -height],
+        [width, height],
+      ]) // Define the zoom extent
+      .filter((event) => {
+        // Enable inertia only when the Alt key is not pressed
+        return !event?.sourceEvent?.altKey;
+      })
+      .wheelDelta((event) => {
+        // Customize wheel delta to control the inertia speed
+        return (
+          -event.deltaY *
+          (event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002)
+        );
+      });
 
+    // Wrap the SVG in a larger container
+    const viewSpace = d3
+      .select(viewContainer.current)
+      .attr('class', 'svg-container');
 
     // Create the SVG container.
     const svg = d3
@@ -65,7 +96,13 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .attr('width', width)
       .attr('height', height)
       .attr('viewBox', [-width / 2, -height / 2, width, height])
-      .attr('style', 'max-width: 100vh; height: auto; font-family: sans-serif;')
+      .attr(
+        'style',
+        'max-width: 100vh; height: auto; font-family: sans-serif; overflow: visible;',
+      );
+
+    // Attach zoom behavior to the larger container
+    viewSpace.call(zoom);
 
     const baseFontSize = 10; // Define the base font size
 
@@ -76,8 +113,6 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       return adjustedFontSize;
     }
     svg.attr('font-size', () => updateFontSize());
-
-
 
     // Clear SVG before redraw
     svg.selectAll('*').remove();
@@ -97,22 +132,43 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .attr('fill', '#B0B0B0')
       .attr('d', 'M0,-5L10,0L0,5');
 
-    svg.call(zoom);
-
-    // Create links (edges)
-    const link = svg
+    const linkGroup = svg
       .append('g')
       .attr('stroke', '#B0B0B0')
-      .attr('stroke-opacity', 0.6)
+      .attr('stroke-opacity', 0.6);
+
+    // Append lines for links
+    const link = linkGroup
       .selectAll('line')
       .data(links)
-      .join('line')
-      .attr('stroke-width', (d) => Math.sqrt(d.value))
-      .attr("marker-end", "url(#arrow)");;
+      .enter()
+      .append('line')
+      .attr('marker-end', 'url(#arrow)');
+
+    // Append text for links
+    const linkText = linkGroup
+      .selectAll('.link-text')
+      .data(links)
+      .enter()
+      .append('text')
+      .attr('text-anchor', 'middle')
+      .attr('class', 'link-text')
+      .text((d) => d.linkTag); // Adjust to access appropriate label or data property
+
+    // Create links (edges)
+    // const link = svg
+    //   .append('g')
+    //   .attr('stroke', '#B0B0B0')
+    //   .attr('stroke-opacity', 0.6)
+    //   .selectAll('line')
+    //   .data(links)
+    //   .join('line')
+    //   .attr('stroke-width', (d) => Math.sqrt(d.value))
+    //   .attr("marker-end", "url(#arrow)");
 
     const node = svg
       .append('g')
-      .attr('fill', 'currentColor')
+      .attr('fill', 'gray')
       .attr('stroke-linecap', 'round')
       .attr('stroke-linejoin', 'round')
       .selectAll('g')
@@ -122,8 +178,8 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
 
     node
       .append('circle')
-      .attr('stroke', 'white')
-      .attr('stroke-width', 1.5)
+      // .attr('stroke', 'white')
+      // .attr('stroke-width', 1.5)
       .attr('r', 4);
 
     node
@@ -161,6 +217,12 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
         .attr('y2', (d) => d.target.y);
 
       node.attr('transform', (d) => `translate(${d.x}, ${d.y})`);
+
+      // Position the text along the line
+      linkText
+        .attr('x', (d) => (d.source.x + d.target.x) / 2)
+        .attr('y', (d) => (d.source.y + d.target.y) / 2)
+        .attr('dy', -5);
     });
 
     function drag(simulation) {
@@ -192,12 +254,12 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
   }, [allNotes, allLinks]);
 
   return (
-    <svg
-      ref={d3Container}
-      width={'100vh'}
-      height={'100vh'}
-      style={{ display: 'block', overflow: 'hidden' }}
-    />
+    <div
+      ref={viewContainer}
+      style={{ width: '100%', height: '100%', position: 'relative' }}
+    >
+      <svg ref={d3Container} style={{ width: '100%', height: '100%' }} />
+    </div>
   );
 };
 

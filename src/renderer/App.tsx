@@ -11,8 +11,6 @@ import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
 import GraphView from './components/GraphView';
-import TreeView from './components/TreeView';
-import SigmaGraph from './components/SigmaGraph';
 
 import { debounce } from '../utils/general';
 
@@ -36,7 +34,6 @@ function Home() {
     }
   };
 
-
   const fetchLinks = async () => {
     try {
       const noteResponse =
@@ -54,36 +51,6 @@ function Home() {
     } catch (error) {
       console.error('Error when getting tags:', (error as Error).message);
     }
-  };
-
-  const createTree = (selectedNode: Node, nodes: Node[], links: Link[]): TreeNode => {
-    // Create a map of nodes for quick access
-    const nodeMap: { [id: number]: TreeNode } = {};
-    nodes.forEach(node => {
-      nodeMap[node.id] = { ...node };
-    });
-
-    // Identify parents and children of the selected node
-    const parents: TreeNode[] = [];
-    const children: TreeNode[] = [];
-    links.forEach(link => {
-      if (link.targetID === selectedNode.id) {
-        const parent = nodeMap[link.sourceID];
-        if (parent) {
-          parents.push(parent);
-        }
-      } else if (link.sourceID === selectedNode.id) {
-        const child = nodeMap[link.targetID];
-        if (child) {
-          children.push(child);
-        }
-      }
-    });
-
-    // Construct the tree structure
-    const rootNode: TreeNode = { ...selectedNode, children: [{title: "parents", children: parents}, {title: "children", children: children}] };
-
-    return rootNode;
   };
 
   useEffect(() => {
@@ -111,7 +78,6 @@ function Home() {
   };
 
   const handleCancelLinkMenu = () => {
-    console.log(createTree(activeNote, notes, allLinks));
     setShowLinkMenu(false);
   };
 
@@ -119,7 +85,6 @@ function Home() {
     let sourceID: number;
     let targetID: number;
     let noteID = note.id;
-    console.log('Note:', noteID);
     if (note.id === undefined) {
       try {
         const result = await handleAddNote(note);
@@ -146,6 +111,7 @@ function Home() {
     } catch (error) {
       console.error('Error when adding link:', (error as Error).message);
     }
+    fetchNotes();
     fetchLinks();
     setShowLinkMenu(false);
   };
@@ -228,8 +194,6 @@ function Home() {
         <PanelResizeHandle />
         <Panel defaultSize={30} minSize={20}>
           <GraphView allNotes={notes} allLinks={allLinks} />
-          {/* <TreeView treeData={createTree(notes[0], notes, allLinks)} /> */}
-          {/* <SigmaGraph allNotes={notes} allLinks={allLinks} /> */}
         </Panel>
       </PanelGroup>
     </>

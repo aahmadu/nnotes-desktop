@@ -89,13 +89,23 @@ const updateNote = (updatedNote: Note) => {
 
 const deleteNote = async (id: number): Promise<void> => {
   return new Promise((resolve, reject) => {
-    db.run('DELETE FROM nodes WHERE id = ?', [id], (err: Error) => {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve();
-      }
-    });
+    db.run(
+      'DELETE FROM links WHERE sourceID = ? OR targetID = ?',
+      [id, id],
+      (linkErr: Error) => {
+        if (linkErr) {
+          reject(new Error(linkErr.message));
+        } else {
+          db.run('DELETE FROM nodes WHERE id = ?', [id], (err: Error) => {
+            if (err) {
+              reject(new Error(err.message));
+            } else {
+              resolve();
+            }
+          });
+        }
+      },
+    );
   });
 };
 
