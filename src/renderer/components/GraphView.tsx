@@ -25,22 +25,33 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       linkTag: link.linkTag,
     }));
 
+    function calculateLinkDistance(link) {
+      const minDistance = 100; // Minimum distance
+      const characterWidth = 6; // Estimated average width per character in pixels
+      const textLength = (link.linkTag.length + 8) * characterWidth;
+      console.log(textLength < minDistance ? minDistance : textLength);
+      return textLength < minDistance ? minDistance : textLength;
+    }
+
     // Create a simulation with several forces.
     const simulation = d3
       .forceSimulation(nodes)
       .force(
         'link',
-        d3.forceLink(links).id((d) => d.id),
+        d3
+          .forceLink(links)
+          .id((d) => d.id)
+          .distance(calculateLinkDistance),
       )
-      .force('charge', d3.forceManyBody().strength(-100))
+      .force('charge', d3.forceManyBody().strength(-200))
       .force('x', d3.forceX())
       .force('y', d3.forceY());
 
-    const textDistance = 4;
+    const textDistance = 6;
     function zoomed(event) {
       const { transform } = event;
       const currentZoomScale = transform.k;
-      const adjustedTextDistance = textDistance;// / currentZoomScale;
+      const adjustedTextDistance = textDistance; // / currentZoomScale;
 
       if (currentZoomScale > 1) {
         // Show text only when zoom scale is less than 1
@@ -153,7 +164,9 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .append('text')
       .attr('text-anchor', 'middle')
       .attr('class', 'link-text')
-      .text((d) => d.linkTag); // Adjust to access appropriate label or data property
+      .text((d) => d.linkTag); // Adjust to access appropriate label or data property;
+
+    // simulation.force('link').distance((d) => d.textWidth + 30);
 
     // Create links (edges)
     // const link = svg
@@ -222,7 +235,19 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       linkText
         .attr('x', (d) => (d.source.x + d.target.x) / 2)
         .attr('y', (d) => (d.source.y + d.target.y) / 2)
-        .attr('dy', -5);
+        .attr('dy', -5) // You might need to adjust this based on your graph's scale
+        .attr('transform', (d) => {
+          let angle = Math.atan2(
+            d.target.y - d.source.y,
+            d.target.x - d.source.x,
+          );
+          if (angle > 90 || angle < -90) {
+            angle = (angle + 180) % 360;  // Normalize angle to keep text upright
+          }
+          return `rotate(${(angle * 180) / Math.PI}, ${
+            d.source.x + (d.target.x - d.source.x) / 2
+          }, ${d.source.y + (d.target.y - d.source.y) / 2})`;
+        });
     });
 
     function drag(simulation) {

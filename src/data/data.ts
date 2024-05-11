@@ -11,7 +11,7 @@ if (os.platform() === 'darwin') {
 } else {
   googleDrivePath = 'G:\\My Drive\\NNotes';
 }
-const dbName = 'notesdbfull.sqlite';
+const dbName = 'notesdb.sqlite';
 const dbPath = path.join(googleDrivePath, dbName);
 
 // Check if the database file exists
