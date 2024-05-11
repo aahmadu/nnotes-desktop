@@ -241,8 +241,8 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
             d.target.y - d.source.y,
             d.target.x - d.source.x,
           );
-          if (angle > 90 || angle < -90) {
-            angle = (angle + 180) % 360;  // Normalize angle to keep text upright
+          if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+            angle = (angle + Math.PI) % (2 * Math.PI);  // Normalize angle to keep text upright
           }
           return `rotate(${(angle * 180) / Math.PI}, ${
             d.source.x + (d.target.x - d.source.x) / 2
