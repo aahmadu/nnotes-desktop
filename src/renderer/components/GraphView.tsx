@@ -1,14 +1,17 @@
 import { useEffect, useRef, FunctionComponent } from 'react';
 import * as d3 from 'd3';
 
+import { calculateLinkDistance, updateFontSize } from './utils';
 import { Note, Link } from '../../types/general';
 
 interface GraphViewProps {
+  activeNote: Note;
   allNotes: Note[];
   allLinks: Link[];
 }
 
 const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
+  activeNote,
   allNotes,
   allLinks,
 }) {
@@ -24,14 +27,6 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       target: link.targetID,
       linkTag: link.linkTag,
     }));
-
-    function calculateLinkDistance(link) {
-      const minDistance = 100; // Minimum distance
-      const characterWidth = 6; // Estimated average width per character in pixels
-      const textLength = (link.linkTag.length + 8) * characterWidth;
-      console.log(textLength < minDistance ? minDistance : textLength);
-      return textLength < minDistance ? minDistance : textLength;
-    }
 
     // Create a simulation with several forces.
     const simulation = d3
@@ -118,21 +113,27 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
     const baseFontSize = 10; // Define the base font size
 
     // Define a function to update the font size based on the current zoom scale
-    function updateFontSize() {
-      const currentZoomScale = d3.zoomTransform(svg.node()).k;
-      const adjustedFontSize = baseFontSize / currentZoomScale;
-      return adjustedFontSize;
-    }
-    svg.attr('font-size', () => updateFontSize());
+
+    svg.attr('font-size', () => updateFontSize(baseFontSize, svg));
 
     // Clear SVG before redraw
     svg.selectAll('*').remove();
-
+    const colours = {
+      node: '#808080',
+      link: '#b5b5b5',
+      selectedNode: '#1F2041',
+      outLink: '#FA8334',
+      inLink: '#00A9A5',
+      nodeText: 'black',
+      linkText: 'gray',
+    };
     // Per-type markers, as they don't inherit styles.
     svg
       .append('defs')
-      .append('marker')
-      .attr('id', 'arrow')
+      .selectAll("marker")
+      .data(['link', 'outLink', 'inLink'])
+      .join("marker")
+      .attr('id', (d) => `arrow-${d}`)
       .attr('viewBox', '0 -5 10 10')
       .attr('refX', 15)
       .attr('refY', -0.5)
@@ -140,13 +141,10 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .attr('markerHeight', 6)
       .attr('orient', 'auto')
       .append('path')
-      .attr('fill', '#B0B0B0')
+      .attr('fill', (d) => colours[d])
       .attr('d', 'M0,-5L10,0L0,5');
 
-    const linkGroup = svg
-      .append('g')
-      .attr('stroke', '#B0B0B0')
-      .attr('stroke-opacity', 0.6);
+    const linkGroup = svg.append('g');
 
     // Append lines for links
     const link = linkGroup
@@ -154,7 +152,9 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .data(links)
       .enter()
       .append('line')
-      .attr('marker-end', 'url(#arrow)');
+      .attr('stroke', colours.link)
+      .attr('stroke-opacity', 0.6)
+      .attr('marker-end', 'url(#arrow-link)');
 
     // Append text for links
     const linkText = linkGroup
@@ -162,26 +162,14 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .data(links)
       .enter()
       .append('text')
+      .attr('fill', colours.linkText)
       .attr('text-anchor', 'middle')
       .attr('class', 'link-text')
       .text((d) => d.linkTag); // Adjust to access appropriate label or data property;
 
-    // simulation.force('link').distance((d) => d.textWidth + 30);
-
-    // Create links (edges)
-    // const link = svg
-    //   .append('g')
-    //   .attr('stroke', '#B0B0B0')
-    //   .attr('stroke-opacity', 0.6)
-    //   .selectAll('line')
-    //   .data(links)
-    //   .join('line')
-    //   .attr('stroke-width', (d) => Math.sqrt(d.value))
-    //   .attr("marker-end", "url(#arrow)");
-
     const node = svg
       .append('g')
-      .attr('fill', 'gray')
+      .attr('fill', 'black')
       .attr('stroke-linecap', 'round')
       .attr('stroke-linejoin', 'round')
       .selectAll('g')
@@ -191,36 +179,43 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
 
     node
       .append('circle')
-      // .attr('stroke', 'white')
-      // .attr('stroke-width', 1.5)
-      .attr('r', 4);
+      .attr('fill', (d) =>
+        d.id === activeNote?.id ? colours.selectedNode : colours.node,
+      )
+      .attr('r', 4)
+      .on('mouseenter', (event, d) => {
+        d3.select(event.target).attr('fill', colours.selectedNode);
+        link
+          .style('stroke', (l) => {
+            if (l.source === d) {
+              return colours.outLink;
+            } else if (l.target === d) {
+              return colours.inLink;
+            } else {
+              return colours.link;
+            }
+        }).attr('marker-end', (l) => {
+            if (l.source === d) {
+              return 'url(#arrow-outLink)';
+            } else if (l.target === d) {
+              return 'url(#arrow-inLink)';
+            } else {
+              return 'url(#arrow-link)';
+            }
+      });
+      })
+      .on('mouseleave', (event, d) => {
+        d3.select(event.target).attr('fill', colours.node); // Reset hovered
+        link.style('stroke', colours.link).attr('marker-end', 'url(#arrow-link)');
+      });
 
     node
       .append('text')
       .attr('y', '1em')
+      .attr('dy', textDistance)
       .text((d) => d.title)
       .attr('text-anchor', 'middle')
-      .clone(true)
-      .lower()
-      .attr('fill', 'none')
-      .attr('stroke', 'white')
-      .attr('stroke-width', 1);
-
-    // const node = svg.append('g').selectAll('g').data(nodes).join('g');
-
-    // node.append('circle')
-    //   .attr('r', 5)
-    //   // .attr('fill', d => color(d.group))
-    //   .attr('fill', d => 'gray')
-    //   .call(drag(simulation));
-
-    // node.append('text')
-    //   .text(d => d.title)  // Assuming 'id' is what you want to display
-    //   .attr('x', 0)
-    //   .attr('y', 10)  // Offset y by 10 to position below the node
-    //   .attr('text-anchor', 'middle')  // Centers text under the node
-    //   .attr('fill', '#555')  // Text color
-    //   .attr('font-size', '10px');
+      .attr('fill', colours.nodeText);
 
     simulation.on('tick', () => {
       link
@@ -241,8 +236,8 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
             d.target.y - d.source.y,
             d.target.x - d.source.x,
           );
-          if (angle > 90 || angle < -90) {
-            angle = (angle + 180) % 360;  // Normalize angle to keep text upright
+          if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+            angle = (angle + Math.PI) % (2 * Math.PI); // Normalize angle to keep text upright
           }
           return `rotate(${(angle * 180) / Math.PI}, ${
             d.source.x + (d.target.x - d.source.x) / 2
@@ -276,7 +271,7 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
     // really matter since the target alpha is zero and the simulation will
     // stop naturally, but it’s a good practice.)
     // invalidation.then(() => simulation.stop());
-  }, [allNotes, allLinks]);
+  }, [activeNote, allNotes, allLinks]);
 
   return (
     <div

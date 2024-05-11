@@ -15,6 +15,7 @@ import GraphView from './components/GraphView';
 import { debounce } from '../utils/general';
 
 function Home() {
+  const [activeNote, setActiveNote] = useState<Note | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [allLinks, setallLinks] = useState<Link[]>([]);
   const [allLinkTags, setallLinkTags] = useState<string[]>([]);
@@ -58,7 +59,7 @@ function Home() {
     fetchLinks();
   }, []);
 
-  const [activeNote, setActiveNote] = useState<Note | null>(null);
+
 
   const handleNoteSelect = (note: Note) => {
     setActiveNote(note);
@@ -193,7 +194,11 @@ function Home() {
         </Panel>
         <PanelResizeHandle />
         <Panel defaultSize={30} minSize={20}>
-          <GraphView allNotes={notes} allLinks={allLinks} />
+          <GraphView
+            activeNote={activeNote as Note}
+            allNotes={notes}
+            allLinks={allLinks}
+          />
         </Panel>
       </PanelGroup>
     </>
