@@ -83,8 +83,8 @@ function Home() {
   };
 
   const handleCreateLink = async (linkOption: string, note: Note, linkTag: string) => {
-    let sourceID: number;
-    let targetID: number;
+    let source: number;
+    let target: number;
     let noteID = note.id;
     if (note.id === undefined) {
       try {
@@ -96,17 +96,17 @@ function Home() {
     }
 
     if (linkOption === 'To') {
-      sourceID = activeNote!.id;
-      targetID = noteID;
+      source = activeNote!.id;
+      target = noteID;
     } else {
-      sourceID = noteID;
-      targetID = activeNote!.id;
+      source = noteID;
+      target = activeNote!.id;
     }
     try {
-      console.log('Create link:', sourceID, targetID, linkTag);
+      console.log('Create link:', source, target, linkTag);
       window.electron.ipcRenderer.sendMessage('add-link', {
-        sourceID,
-        targetID,
+        source,
+        target,
         linkTag,
       });
     } catch (error) {

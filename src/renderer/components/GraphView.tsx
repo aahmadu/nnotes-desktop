@@ -15,21 +15,65 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
   allNotes,
   allLinks,
 }) {
+  const updateFunc= useRef(null);
+  const prevNotes = useRef<Note[]>([]);
+  const isInitialized = useRef(false);
   const viewContainer = useRef(null);
   const d3Container = useRef(null);
   const width = 227;
   const height = 691;
+  const simulation = useRef<d3.Simulation<d3.SimulationNodeDatum, undefined>>();
+  const textDistance = 10;
 
-  useEffect(() => {
+  const colours = {
+    node: '#808080',
+    link: '#b5b5b5',
+    selectedNode: '#1F2041',
+    outLink: '#FA8334',
+    inLink: '#00A9A5',
+    nodeText: 'black',
+    linkText: 'gray',
+  };
+
+
+  function drag(sim) {
+    function dragstarted(event, d) {
+      if (!event.active) sim.alphaTarget(0.3).restart();
+      console.log("event", event, event.x);
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+    function dragged(event, d) {
+      // console.log("event-dragged", event.x, event.y);
+      console.log("event", event, event.x);
+      d.fx = event.x;
+      d.fy = event.y;
+      // d3.select(this.parentNode)
+      //   .attr('transform', `translate(${event.x}, ${event.y})`);
+    }
+    function dragended(event, d) {
+      if (!event.active) sim.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+    return d3
+      .drag()
+      .on('start', dragstarted)
+      .on('drag', dragged)
+      .on('end', dragended);
+  }
+
+  function initializeGraph() {
+    console.log('All notes:', allNotes);
     const nodes = allNotes.map((d) => ({ ...d }));
     const links = allLinks.map((link) => ({
-      source: link.sourceID,
-      target: link.targetID,
+      source: link.source,
+      target: link.target,
       linkTag: link.linkTag,
     }));
 
     // Create a simulation with several forces.
-    const simulation = d3
+    simulation.current = d3
       .forceSimulation(nodes)
       .force(
         'link',
@@ -42,11 +86,11 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .force('x', d3.forceX())
       .force('y', d3.forceY());
 
-    const textDistance = 6;
+
     function zoomed(event) {
       const { transform } = event;
       const currentZoomScale = transform.k;
-      const adjustedTextDistance = textDistance; // / currentZoomScale;
+      const adjustedTextDistance = textDistance.current; // / currentZoomScale;
 
       if (currentZoomScale > 1) {
         // Show text only when zoom scale is less than 1
@@ -70,6 +114,8 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
     const zoom = d3
       .zoom()
       .scaleExtent([0.1, 4]) // Limit the zoom scale
+      .on('start', () => {console.log("down boy");d3.select('body').style("cursor", "grabbing")})
+      .on('end', () => {console.log("up boy");d3.select('body').style("cursor", "default")})
       .on('zoom', zoomed)
       .translateExtent([
         [-Infinity, -Infinity],
@@ -109,6 +155,9 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
 
     // Attach zoom behavior to the larger container
     viewSpace.call(zoom);
+    // viewSpace.on("mousedown", () => viewSpace.style("cursor", "grabbing"));
+    // svg.on("mousedown", () => viewSpace.style("cursor", "grabbing"));
+    // svg.on("mouseup", () => viewSpace.style("cursor", "grab"));
 
     const baseFontSize = 10; // Define the base font size
 
@@ -118,15 +167,7 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
 
     // Clear SVG before redraw
     svg.selectAll('*').remove();
-    const colours = {
-      node: '#808080',
-      link: '#b5b5b5',
-      selectedNode: '#1F2041',
-      outLink: '#FA8334',
-      inLink: '#00A9A5',
-      nodeText: 'black',
-      linkText: 'gray',
-    };
+
     // Per-type markers, as they don't inherit styles.
     svg
       .append('defs')
@@ -144,90 +185,124 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .attr('fill', (d) => colours[d])
       .attr('d', 'M0,-5L10,0L0,5');
 
-    const linkGroup = svg.append('g');
+    svg.append('g').attr('class', 'links');
+    svg.append('g').attr('class', 'nodes');
 
-    // Append lines for links
-    const link = linkGroup
-      .selectAll('line')
-      .data(links)
-      .enter()
-      .append('line')
-      .attr('stroke', colours.link)
-      .attr('stroke-opacity', 0.6)
-      .attr('marker-end', 'url(#arrow-link)');
+    updateGraph(nodes, links);
+    // const link = svg.select('.links').selectAll('g').selectAll('line');
+    // const node = svg.select('.nodes').selectAll('g');
 
-    // Append text for links
-    const linkText = linkGroup
-      .selectAll('.link-text')
-      .data(links)
-      .enter()
+    // simulation.current.on('tick', () => {
+    //   link
+    //     .attr('x1', (d) => d.source.x)
+    //     .attr('y1', (d) => d.source.y)
+    //     .attr('x2', (d) => d.target.x)
+    //     .attr('y2', (d) => d.target.y);
+
+    //   node.attr('transform', (d) => `translate(${d.x}, ${d.y})`);
+    // });
+
+
+
+    // When this cell is re-run, stop the previous simulation. (This doesn’t
+    // really matter since the target alpha is zero and the simulation will
+    // stop naturally, but it’s a good practice.)
+    // invalidation.then(() => simulation.stop());
+  }
+
+  function updateGraph(nodes, links) {
+    const activeNodeId = activeNote?.id;
+    const oldNodes = new Map(simulation.current.nodes().map(d => [d.id, d]));
+    nodes = nodes.map(d => Object.assign(oldNodes.get(d.id) || {}, d));
+    links = links.map(d => Object.assign({}, d));
+
+    const svg = d3.select(d3Container.current);
+    // links
+    let updateLinks = svg.select('.links').selectAll('g').data(links);
+    updateLinks.exit().remove();
+    const enterLinks = updateLinks.enter().append('g');
+    enterLinks.append('line').attr('stroke', colours.link);
+    enterLinks
       .append('text')
-      .attr('fill', colours.linkText)
+      .text((d) => d.linkTag)
       .attr('text-anchor', 'middle')
-      .attr('class', 'link-text')
-      .text((d) => d.linkTag); // Adjust to access appropriate label or data property;
+      .attr('fill', colours.linkText);
+    updateLinks = enterLinks.merge(updateLinks);
 
-    const node = svg
-      .append('g')
-      .attr('fill', 'black')
-      .attr('stroke-linecap', 'round')
-      .attr('stroke-linejoin', 'round')
-      .selectAll('g')
-      .data(nodes)
-      .join('g')
-      .call(drag(simulation));
-
-    node
-      .append('circle')
-      .attr('fill', (d) =>
-        d.id === activeNote?.id ? colours.selectedNode : colours.node,
-      )
-      .attr('r', 4)
-      .on('mouseenter', (event, d) => {
-        d3.select(event.target).attr('fill', colours.selectedNode);
-        link
-          .style('stroke', (l) => {
-            if (l.source === d) {
-              return colours.outLink;
-            } else if (l.target === d) {
-              return colours.inLink;
-            } else {
-              return colours.link;
-            }
-        }).attr('marker-end', (l) => {
-            if (l.source === d) {
-              return 'url(#arrow-outLink)';
-            } else if (l.target === d) {
-              return 'url(#arrow-inLink)';
-            } else {
-              return 'url(#arrow-link)';
-            }
-      });
-      })
-      .on('mouseleave', (event, d) => {
-        d3.select(event.target).attr('fill', colours.node); // Reset hovered
-        link.style('stroke', colours.link).attr('marker-end', 'url(#arrow-link)');
-      });
-
-    node
-      .append('text')
+    // nodes
+    let updateNodes = svg.select('.nodes').selectAll('g');
+    updateNodes = updateNodes.data(nodes, d => d.id);
+    updateNodes.exit().remove();
+    const enterNodes = updateNodes.enter().append('g');
+    enterNodes.append('circle').attr('r', 4);
+    enterNodes.append('text')
+      .attr('pointer-events', 'none')
       .attr('y', '1em')
-      .attr('dy', textDistance)
-      .text((d) => d.title)
+      .attr('dy', textDistance.current)
       .attr('text-anchor', 'middle')
       .attr('fill', colours.nodeText);
+    updateNodes = enterNodes.merge(updateNodes);
 
-    simulation.on('tick', () => {
-      link
+    updateNodes.selectAll('circle')
+    .attr('fill', d => d.id === activeNodeId ? colours.selectedNode : colours.node);
+    updateNodes.selectAll('text').text(d => d.title);
+    updateLinks.select('text').text(d => d.linkTag);
+
+    updateLinks.select('line')
+    .style('stroke', d => {
+      if (activeNodeId !== undefined && (activeNodeId === d.source || activeNodeId === d.target)) {
+        if (d.source === activeNodeId) return colours.outLink;
+        if (d.target === activeNodeId) return colours.inLink;
+      }
+      return colours.link;
+    })
+    .attr('marker-end', d => {
+      if (activeNodeId !== undefined && (activeNodeId === d.source || activeNodeId === d.target)) {
+        if (d.source === activeNodeId) return 'url(#arrow-outLink)';
+        if (d.target === activeNodeId) return 'url(#arrow-inLink)';
+      }
+      return 'url(#arrow-link)';
+    });
+
+    updateNodes.selectAll('circle').on('mouseenter', (event, d) => {
+      d3.select(event.target).attr('fill', colours.selectedNode);
+      updateLinks.select('line')
+        .style('stroke', l => {
+          if (l.source === d) return colours.outLink;
+          if (l.target === d) return colours.inLink;
+          return colours.link;
+        }).attr('marker-end', l => {
+          if (l.source === d) return 'url(#arrow-outLink)';
+          if (l.target === d) return 'url(#arrow-inLink)';
+          return 'url(#arrow-link)';
+        });
+    });
+
+    // console.log("simulation.nodes", updateNodes.select('circle'));
+    updateNodes.select('circle').call(drag(simulation.current));
+
+      // Set up mouseleave event for nodes
+  updateNodes.selectAll('circle').on('mouseleave', () => {
+    updateNodes.selectAll('circle').attr('fill', d => d.id === activeNodeId ? colours.selectedNode : colours.node);
+    updateLinks.selectAll('line').style('stroke', colours.link).attr('marker-end', 'url(#arrow-link)');
+  });
+
+    simulation.current.nodes(nodes)
+      .force("link", d3.forceLink(links).id(d => d.id))
+      .restart()
+
+    // simulation.current.nodes(nodes);
+    // simulation.current.force("link").links(links);
+    // simulation.current.alpha(0.8).restart();
+
+    simulation.current.on('tick', () => {
+      updateLinks.selectAll('line')
         .attr('x1', (d) => d.source.x)
         .attr('y1', (d) => d.source.y)
         .attr('x2', (d) => d.target.x)
         .attr('y2', (d) => d.target.y);
 
-      node.attr('transform', (d) => `translate(${d.x}, ${d.y})`);
-
-      // Position the text along the line
-      linkText
+      updateLinks.selectAll('text')
         .attr('x', (d) => (d.source.x + d.target.x) / 2)
         .attr('y', (d) => (d.source.y + d.target.y) / 2)
         .attr('dy', -5) // You might need to adjust this based on your graph's scale
@@ -243,35 +318,36 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
             d.source.x + (d.target.x - d.source.x) / 2
           }, ${d.source.y + (d.target.y - d.source.y) / 2})`;
         });
-    });
 
-    function drag(simulation) {
-      function dragstarted(event) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        event.subject.fx = event.subject.x;
-        event.subject.fy = event.subject.y;
-      }
-      function dragged(event) {
-        event.subject.fx = event.x;
-        event.subject.fy = event.y;
-      }
-      function dragended(event) {
-        if (!event.active) simulation.alphaTarget(0);
-        event.subject.fx = null;
-        event.subject.fy = null;
-      }
-      return d3
-        .drag()
-        .on('start', dragstarted)
-        .on('drag', dragged)
-        .on('end', dragended);
+      updateNodes.select('circle')
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y);
+      updateNodes.select('text')
+        .attr("x", d => d.x)
+        .attr("y", d => d.y+13);
+    });
+  }
+
+  useEffect(() => {
+    if (allNotes.length > 0 && allLinks.length > 0) {
+      updateGraph(allNotes, allLinks);
+      prevNotes.current = allNotes;
+    }
+  }, [activeNote]);
+
+  useEffect(() => {
+    if (!isInitialized.current && allNotes.length > 0 && allLinks.length > 0) {
+      initializeGraph();
+      isInitialized.current = true;
+      prevNotes.current = allNotes;
+    }
+    if (allNotes.length > 0 && allLinks.length > 0) {
+      updateGraph(allNotes, allLinks);
+      prevNotes.current = allNotes;
+      console.log("gggggg", simulation.current.nodes());
     }
 
-    // When this cell is re-run, stop the previous simulation. (This doesn’t
-    // really matter since the target alpha is zero and the simulation will
-    // stop naturally, but it’s a good practice.)
-    // invalidation.then(() => simulation.stop());
-  }, [activeNote, allNotes, allLinks]);
+  }, [allNotes, allLinks]);
 
   return (
     <div

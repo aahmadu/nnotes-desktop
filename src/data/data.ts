@@ -46,11 +46,11 @@ const db = new sqlite3.Database(dbPath, (err: Error) => {
       db.run(
         `CREATE TABLE links (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sourceID INTEGER,
-        targetID INTEGER,
+        source INTEGER,
+        target INTEGER,
         linkTag TEXT,
-        FOREIGN KEY (sourceID) REFERENCES nodes(id),
-        FOREIGN KEY (targetID) REFERENCES nodes(id))`,
+        FOREIGN KEY (source) REFERENCES nodes(id),
+        FOREIGN KEY (target) REFERENCES nodes(id))`,
         (err3: Error) => {
           if (err) {
             console.error('Error creating semantic_relationships table', err3);

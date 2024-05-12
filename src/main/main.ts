@@ -90,7 +90,7 @@ const updateNote = (updatedNote: Note) => {
 const deleteNote = async (id: number): Promise<void> => {
   return new Promise((resolve, reject) => {
     db.run(
-      'DELETE FROM links WHERE sourceID = ? OR targetID = ?',
+      'DELETE FROM links WHERE source = ? OR target = ?',
       [id, id],
       (linkErr: Error) => {
         if (linkErr) {
@@ -110,11 +110,11 @@ const deleteNote = async (id: number): Promise<void> => {
 };
 
 const addLink = async (link: Link): Promise<void> => {
-  const { sourceID, targetID, linkTag } = link;
+  const { source, target, linkTag } = link;
   return new Promise((resolve, reject) => {
     db.run(
-      'INSERT INTO links (sourceID, targetID, linkTag) VALUES (?, ?, ?)',
-      [sourceID, targetID, linkTag],
+      'INSERT INTO links (source, target, linkTag) VALUES (?, ?, ?)',
+      [source, target, linkTag],
       (err: Error) => {
         if (err) {
           reject(new Error(err.message));
