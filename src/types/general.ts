@@ -7,7 +7,7 @@ export type Note = {
 
 export type Link = {
   id: number;
-  sourceID: number;
-  targetID: number;
+  source: number;
+  target: number;
   linkTag: string;
 };
