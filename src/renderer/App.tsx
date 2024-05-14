@@ -61,6 +61,7 @@ function Home() {
 
   const handleNoteSelect = (note: Note) => {
     setActiveNote(note);
+    console.log('handleNoteSelect');
   };
 
   const handleNewNote = () => {
@@ -68,8 +69,9 @@ function Home() {
   };
 
   const handleDeleteNote = (noteID: number) => {
+    setActiveNote(undefined);
     window.electron.ipcRenderer.sendMessage('delete-note', { noteID });
-    fetchNotes();
+    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteID));
   };
 
   const handleClickLinkMenu = () => {
@@ -180,6 +182,7 @@ function Home() {
       <PanelGroup className="container" direction="horizontal">
         <Panel defaultSize={20} minSize={20}>
           <Sidebar
+            activeNote={activeNote}
             notes={notes}
             onNoteSelect={handleNoteSelect}
             onNewNote={handleNewNote}
@@ -189,7 +192,7 @@ function Home() {
         <PanelResizeHandle />
         <Panel minSize={30}>
           <Editor
-            activeNote={activeNote as Note}
+            activeNote={activeNote}
             updateDatabase={updateDatabase}
             onLinkMenu={handleClickLinkMenu}
           />

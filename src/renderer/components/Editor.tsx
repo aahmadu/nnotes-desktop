@@ -1,9 +1,9 @@
-import { useState, useEffect, FunctionComponent } from 'react';
+import React, { useState, useEffect, FunctionComponent } from 'react';
 import './Editor.css';
 import { Note } from '../../types/general';
 
 type EditorProps = {
-  activeNote: Note;
+  activeNote: Note | undefined;
   updateDatabase: (note: Note) => void;
   onLinkMenu: () => void;
 };

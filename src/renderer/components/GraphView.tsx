@@ -213,6 +213,7 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
     enterLinks
       .append('text')
       .text((d) => d.linkTag)
+      .attr('font-size', 6)
       .attr('text-anchor', 'middle')
       .attr('fill', colours.linkText);
     updateLinks = enterLinks.merge(updateLinks);
@@ -225,7 +226,8 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
     enterNodes.append('text')
       .attr('pointer-events', 'none')
       .attr('y', '1em')
-      .attr('dy', textDistance.current)
+      .attr('dy', 1)
+      .attr('font-size', 7)
       .attr('text-anchor', 'middle')
       .attr('fill', colours.nodeText);
     updateNodes = enterNodes.merge(updateNodes);
