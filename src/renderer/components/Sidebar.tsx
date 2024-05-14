@@ -1,7 +1,10 @@
-import { useState, FunctionComponent } from 'react';
+import { FunctionComponent } from 'react';
 
 import './Sidebar.css';
+import { Menu, Input, Button } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 
+import type { MenuProps } from 'antd';
 import { Note } from '../../types/general';
 
 interface SidebarProps {
@@ -17,37 +20,43 @@ const Sidebar: FunctionComponent<SidebarProps> = function Sidebar({
   onNewNote,
   onDelete,
 }) {
-  const [hoveredNote, setHoveredNote] = useState<number | null>(null);
+  const items: MenuProps['items'] = [
+    {
+      key: 'search',
+      label: (
+        <Input
+          placeholder="Search notes..."
+          style={{ width: '100%', marginBottom: '10px' }}
+        />
+      ),
+    },
+    {
+      type: 'divider',
+    },
+    ...notes.map((note) => ({
+      key: note.id.toString(),
+      label: note.title,
+      onClick: () => onNoteSelect(note),
+    })),
+  ];
 
   return (
-    <div className="sidebar">
-      <div className="search-bar">
-        <input type="text" placeholder="Search notes..." />
-        <button type="button" className="new-note-button" onClick={onNewNote}>
-          +
-        </button>
-      </div>
-      <ul>
-        {notes.map((note) => (
-          <li
-            key={note.id}
-            onMouseEnter={() => setHoveredNote(note.id)}
-            onMouseLeave={() => setHoveredNote(null)}
-            onClick={() => onNoteSelect(note)}
-          >
-            <span>{note.title}</span>
-            {hoveredNote === note.id && (
-              <button
-                type="button"
-                onClick={() => onDelete(note.id)}
-                className="delete-btn"
-              >
-                X
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+    <div className="sidebar-container">
+      <Menu
+        // onClick={onClick}
+        style={{ width: '100%' }}
+        className="menu-container"
+        mode="inline"
+        items={items}
+      />
+      <Button
+        type="primary"
+        icon={<PlusOutlined />}
+        onClick={onNewNote}
+        style={{ position: 'absolute', bottom: 10, left: 15, right: 20 }}
+      >
+        Add Note
+      </Button>
     </div>
   );
 };

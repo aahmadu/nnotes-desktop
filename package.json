@@ -96,11 +96,16 @@
     }
   },
   "dependencies": {
+    "@chakra-ui/react": "^2.8.2",
+    "@emotion/react": "^11.11.4",
+    "@emotion/styled": "^11.11.5",
     "@fortawesome/fontawesome-svg-core": "^6.5.2",
+    "antd": "^5.17.0",
     "d3": "^7.9.0",
     "electron-debug": "^3.2.0",
     "electron-log": "^4.4.8",
     "electron-updater": "^6.1.4",
+    "framer-motion": "^11.1.9",
     "graphology": "^0.25.4",
     "graphology-layout-force": "^0.2.4",
     "graphology-layout-forceatlas2": "^0.10.1",
@@ -108,7 +113,8 @@
     "react-dom": "^18.2.0",
     "react-resizable-panels": "^2.0.19",
     "react-router-dom": "^6.16.0",
-    "sigma": "^3.0.0-beta.18"
+    "sigma": "^3.0.0-beta.18",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@electron/notarize": "^2.1.0",

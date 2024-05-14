@@ -90,8 +90,8 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
           viewSpace.style('cursor', 'grabbing');
         }
       })
-      .on('end', (event) => {
-        viewSpace.style("cursor", "default");
+      .on('end', () => {
+        viewSpace.style('cursor', 'default');
       })
       .on('zoom', zoomed)
       .translateExtent([
@@ -128,10 +128,6 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       .append('path')
       .attr('fill', (d) => colours[d])
       .attr('d', 'M0,-5L10,0L0,5');
-
-    const nodesGroup = svg.select('.nodes');
-    const linksGroup = svg.select('.links');
-
 
     simulation.current.on('tick', () => {
       const updateLinks = d3.select('.links').selectAll('g'); //linksGroup.selectAll('g');

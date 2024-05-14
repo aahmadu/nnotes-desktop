@@ -15,7 +15,7 @@ import GraphView from './components/GraphView';
 import { debounce } from '../utils/general';
 
 function Home() {
-  const [activeNote, setActiveNote] = useState<Note | null>(null);
+  const [activeNote, setActiveNote] = useState<Note>();
   const [notes, setNotes] = useState<Note[]>([]);
   const [allLinks, setallLinks] = useState<Link[]>([]);
   const [allLinkTags, setallLinkTags] = useState<string[]>([]);
@@ -59,14 +59,12 @@ function Home() {
     fetchLinks();
   }, []);
 
-
-
   const handleNoteSelect = (note: Note) => {
     setActiveNote(note);
   };
 
   const handleNewNote = () => {
-    setActiveNote(null);
+    setActiveNote(undefined);
   };
 
   const handleDeleteNote = (noteID: number) => {
@@ -82,7 +80,26 @@ function Home() {
     setShowLinkMenu(false);
   };
 
-  const handleCreateLink = async (linkOption: string, note: Note, linkTag: string) => {
+  const handleAddNote = async (note: Note) => {
+    try {
+      const response = await window.electron.ipcRenderer.invokeMessage(
+        'add-note',
+        { newNote: note },
+      );
+      if (response && response.success) {
+        return(response.activeNote);
+      }
+      console.error('Failed to add note:', response.error);
+    } catch (error) {
+      console.error('Error when adding note:', (error as Error).message);
+    }
+  };
+
+  const handleCreateLink = async (
+    linkOption: string,
+    note: Note,
+    linkTag: string,
+  ) => {
     let source: number;
     let target: number;
     let noteID = note.id;
@@ -115,21 +132,6 @@ function Home() {
     fetchNotes();
     fetchLinks();
     setShowLinkMenu(false);
-  };
-
-  const handleAddNote = async (note: Note) => {
-    try {
-      const response = await window.electron.ipcRenderer.invokeMessage(
-        'add-note',
-        { newNote: note },
-      );
-      if (response && response.success) {
-        return(response.activeNote);
-      }
-      console.error('Failed to add note:', response.error);
-    } catch (error) {
-      console.error('Error when adding note:', (error as Error).message);
-    }
   };
 
   // Function to update database with content
@@ -176,7 +178,7 @@ function Home() {
         />
       )}
       <PanelGroup className="container" direction="horizontal">
-        <Panel defaultSize={30} minSize={20}>
+        <Panel defaultSize={20} minSize={20}>
           <Sidebar
             notes={notes}
             onNoteSelect={handleNoteSelect}
