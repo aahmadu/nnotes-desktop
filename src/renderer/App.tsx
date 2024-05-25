@@ -11,8 +11,10 @@ import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
 import GraphView from './components/GraphView';
+import LinkNav from './components/LinkNav';
 
 import { debounce } from '../utils/general';
+
 
 function Home() {
   const [activeNote, setActiveNote] = useState<Note>();
@@ -191,11 +193,25 @@ function Home() {
         </Panel>
         <PanelResizeHandle />
         <Panel minSize={30}>
-          <Editor
-            activeNote={activeNote}
-            updateDatabase={updateDatabase}
-            onLinkMenu={handleClickLinkMenu}
-          />
+          <PanelGroup direction="vertical">
+            <Panel defaultSize={50} minSize={50}>
+              <Editor
+                activeNote={activeNote}
+                updateDatabase={updateDatabase}
+                onLinkMenu={handleClickLinkMenu}
+              />
+            </Panel>
+            <PanelResizeHandle />
+            <Panel defaultSize={50} minSize={50}>
+              <LinkNav
+                activeNote={activeNote}
+                notes={notes}
+                links={allLinks}
+                onNoteSelect={handleNoteSelect}
+                onDelete={handleDeleteNote}
+              />
+            </Panel>
+          </PanelGroup>
         </Panel>
         <PanelResizeHandle />
         <Panel defaultSize={30} minSize={20}>
@@ -203,6 +219,7 @@ function Home() {
             activeNote={activeNote as Note}
             allNotes={notes}
             allLinks={allLinks}
+            onNoteSelect={handleNoteSelect}
           />
         </Panel>
       </PanelGroup>

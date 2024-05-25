@@ -9,3 +9,7 @@ NNotes is a note-taking application designed to help users not only store inform
 - **Visual Graph Representation:** All notes and their connections are visually displayed in a graph format, allowing for intuitive navigation and understanding of relationships.
 - **Search Functionality:** Quickly find notes using keywords or browse through connections.
 - **Interactive Graph:** Interact with the graph to explore different nodes (notes) and edges (connections).
+
+## Authors
+
+- **Ahmed Ahmadu** -

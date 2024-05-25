@@ -34,6 +34,30 @@ const Sidebar: FunctionComponent<SidebarProps> = function Sidebar({
 
   const contextMenuItems: MenuProps['items'] = [
     {
+      label: 'Link',
+      key: 'link',
+      children: [
+        { label: 'To', key: 'to', children: notes.map((note) => ({
+          key: `link-${note.id}`,
+          label: note.title,
+          onClick: ({ key, domEvent }) => {
+            domEvent.stopPropagation();
+            const linkTo = parseInt(key.split('-')[1], 10);
+            console.log('Linking to:', linkTo);
+          },
+        })), },
+        { label: 'From', key: 'from', children: notes.map((note) => ({
+          key: `link-${note.id}`,
+          label: note.title,
+          onClick: ({ key, domEvent }) => {
+            domEvent.stopPropagation();
+            const linkTo = parseInt(key.split('-')[1], 10);
+            console.log('Linking to:', linkTo);
+          },
+        })), },
+      ],
+    },
+    {
       icon: <DeleteOutlined />,
       label: 'Delete',
       key: 'delete',

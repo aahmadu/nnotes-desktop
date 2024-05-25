@@ -1,19 +1,21 @@
 import { useEffect, useRef, FunctionComponent } from 'react';
 import * as d3 from 'd3';
 
-import { calculateLinkDistance, updateFontSize } from './utils';
+import { calculateLinkDistance, updateFontSize, colours } from './utils';
 import { Note, Link } from '../../types/general';
 
 interface GraphViewProps {
   activeNote: Note;
   allNotes: Note[];
   allLinks: Link[];
+  onNoteSelect: (note: Note) => void;
 }
 
 const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
   activeNote,
   allNotes,
   allLinks,
+  onNoteSelect,
 }) {
   const viewContainer = useRef(null);
   const d3Container = useRef(null);
@@ -21,16 +23,6 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
   const height = 691;
   const simulation = useRef<d3.Simulation<d3.SimulationNodeDatum, undefined>>();
   const textDistance = 10;
-
-  const colours = {
-    node: '#808080',
-    link: '#b5b5b5',
-    selectedNode: '#1F2041',
-    outLink: '#FA8334',
-    inLink: '#00A9A5',
-    nodeText: 'black',
-    linkText: 'gray',
-  };
 
   useEffect(() => {
     const viewSpace = d3
@@ -264,9 +256,16 @@ const GraphView: FunctionComponent<GraphViewProps> = function GraphView({
       applyLinkStyles(updateLinks, d.id);
     });
 
-    updateNodes.selectAll('circle').on('mouseleave', (event) => {
-      d3.select(event.target).attr('fill', colours.node);
-      applyLinkStyles(updateLinks, undefined);
+    updateNodes.selectAll('circle').on('click', (event, d) => {
+      onNoteSelect(d);
+    });
+
+    updateNodes.selectAll('circle').on('mouseleave', (event, d) => {
+      if (d.id !== activeNodeId) {
+        d3.select(event.target).attr('fill', colours.node);
+        console.log(updateLinks)
+        applyLinkStyles(updateLinks, activeNodeId);
+      }
     });
 
     simulation.current.alpha(0.8).restart();

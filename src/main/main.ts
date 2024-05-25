@@ -167,7 +167,6 @@ ipcMain.handle('add-note', async (_event, { newNote }) => {
 ipcMain.on('update-note', async (event, { updatedNote }) => {
   try {
     const changes = await updateNote(updatedNote);
-    console.log('Updated note:', updatedNote);
     event.reply('update-note-response', { success: true, changes });
   } catch (error: any) {
     console.error('Update failed:', error);

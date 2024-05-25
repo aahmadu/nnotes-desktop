@@ -9,13 +9,22 @@ type Link = {
 export function calculateLinkDistance(link: Link) {
   const minDistance = 70; // Minimum distance
   const characterWidth = 6; // Estimated average width per character in pixels
-  const textLength = (link.linkTag.length + 8) * characterWidth;
+  const textLength = (link.linkTag.length) * characterWidth;
   return textLength < minDistance ? minDistance : textLength;
 }
 
 export function updateFontSize(baseFontSize, svg) {
   const currentZoomScale = d3.zoomTransform(svg.node()).k;
   const adjustedFontSize = baseFontSize / currentZoomScale;
-  console.log('Current zoom scale:', currentZoomScale);
   return adjustedFontSize;
 }
+
+export const colours = {
+  node: '#808080',
+  link: '#b5b5b5',
+  selectedNode: '#1F2041',
+  outLink: '#FA8334',
+  inLink: '#00A9A5',
+  nodeText: 'black',
+  linkText: 'gray',
+};
