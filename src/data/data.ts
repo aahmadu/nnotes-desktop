@@ -4,15 +4,21 @@ import os from 'os';
 
 const sqlite3 = require('sqlite3').verbose();
 
-// Define path for SQLite database
-let googleDrivePath;
-if (os.platform() === 'darwin') {
-  googleDrivePath = '/Users/ahmedahmadu/Google Drive/NNotes/';
-} else {
-  googleDrivePath = 'G:\\My Drive\\NNotes';
+const configPath = path.join(__dirname, 'config.json');
+const fileExists = fs.existsSync(configPath);
+let nnotesFilePath = '';
+
+if (fileExists) {
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  nnotesFilePath = config.nnotesFilePath;
 }
+
+export function getFilePath(): string {
+  return nnotesFilePath;
+}
+
 const dbName = 'notesdbbook.sqlite';
-const dbPath = path.join(googleDrivePath, dbName);
+const dbPath = path.join(nnotesFilePath, dbName);
 
 // Check if the database file exists
 const isDbExist = fs.existsSync(dbPath);

@@ -2,7 +2,7 @@
 
 .sidebar-container {
   position: relative;
-  height: 100vh;  // Adjust the height as needed
+  height: 100vh;
   overflow-y: auto;
 }
 .menu-container {

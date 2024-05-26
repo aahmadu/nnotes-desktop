@@ -1,6 +1,9 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import { useState, useCallback, useEffect } from 'react';
 
+import { FloatButton } from 'antd';
+import { SettingOutlined } from '@ant-design/icons';
+
 import './App.css';
 
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
@@ -12,9 +15,9 @@ import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
 import GraphView from './components/GraphView';
 import LinkNav from './components/LinkNav';
+import SettingsMenu from './components/SettingsMenu';
 
 import { debounce } from '../utils/general';
-
 
 function Home() {
   const [activeNote, setActiveNote] = useState<Note>();
@@ -22,6 +25,7 @@ function Home() {
   const [allLinks, setallLinks] = useState<Link[]>([]);
   const [allLinkTags, setallLinkTags] = useState<string[]>([]);
   const [showLinkMenu, setShowLinkMenu] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
   const fetchNotes = async () => {
     try {
@@ -45,7 +49,7 @@ function Home() {
         setallLinks(noteResponse.allLinks);
         setallLinkTags(
           Array.from(
-            new Set(noteResponse.allLinks.map((link) => link.linkTag)),
+            new Set(noteResponse.allLinks.map((link: Link) => link.linkTag)),
           ),
         );
       } else {
@@ -61,9 +65,12 @@ function Home() {
     fetchLinks();
   }, []);
 
+  const handleSelectDirectory = () => {
+    window.electron.ipcRenderer.sendMessage('select-directory');
+  };
+
   const handleNoteSelect = (note: Note) => {
     setActiveNote(note);
-    console.log('handleNoteSelect');
   };
 
   const handleNewNote = () => {
@@ -91,12 +98,13 @@ function Home() {
         { newNote: note },
       );
       if (response && response.success) {
-        return(response.activeNote);
+        return response.activeNote;
       }
       console.error('Failed to add note:', response.error);
     } catch (error) {
       console.error('Error when adding note:', (error as Error).message);
     }
+    return null;
   };
 
   const handleCreateLink = async (
@@ -181,10 +189,20 @@ function Home() {
           onCreateLink={handleCreateLink}
         />
       )}
+      {showSettingsMenu && (
+        <SettingsMenu
+          onCancelMenu={handleCancelLinkMenu}
+          handleSelectDirectory={handleSelectDirectory}
+        />
+      )}
+      <FloatButton
+        icon={<SettingOutlined />}
+        onClick={() => setShowSettingsMenu(true)}
+      />
       <PanelGroup className="container" direction="horizontal">
-        <Panel defaultSize={20} minSize={20}>
+        <Panel defaultSize={20} minSize={20} maxSize={30}>
           <Sidebar
-            activeNote={activeNote}
+            activeNote={activeNote as Note}
             notes={notes}
             onNoteSelect={handleNoteSelect}
             onNewNote={handleNewNote}
@@ -192,9 +210,9 @@ function Home() {
           />
         </Panel>
         <PanelResizeHandle />
-        <Panel minSize={30}>
+        <Panel defaultSize={40} minSize={30}>
           <PanelGroup direction="vertical">
-            <Panel defaultSize={50} minSize={50}>
+            <Panel defaultSize={80} minSize={30}>
               <Editor
                 activeNote={activeNote}
                 updateDatabase={updateDatabase}
@@ -202,9 +220,9 @@ function Home() {
               />
             </Panel>
             <PanelResizeHandle />
-            <Panel defaultSize={50} minSize={50}>
+            <Panel defaultSize={20} minSize={20} style={{ overflowY: 'auto' }}>
               <LinkNav
-                activeNote={activeNote}
+                activeNote={activeNote as Note}
                 notes={notes}
                 links={allLinks}
                 onNoteSelect={handleNoteSelect}
@@ -214,7 +232,7 @@ function Home() {
           </PanelGroup>
         </Panel>
         <PanelResizeHandle />
-        <Panel defaultSize={30} minSize={20}>
+        <Panel defaultSize={40} minSize={30}>
           <GraphView
             activeNote={activeNote as Note}
             allNotes={notes}

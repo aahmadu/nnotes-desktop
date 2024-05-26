@@ -9,7 +9,14 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain, IpcMainEvent } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  shell,
+  ipcMain,
+  dialog,
+  IpcMainEvent,
+} from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -34,18 +41,12 @@ ipcMain.on('ipc-example', async (event, arg) => {
   event.reply('ipc-example', msgTemplate('pong'));
 });
 
-const insertNote = (note: Note) => {
-  const sql = 'INSERT INTO nodes (title, content) VALUES (?, ?)';
-  return new Promise((resolve, reject) => {
-    db.run(sql, [note.title, note.content], function (this: any, err: Error) {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve(this.lastID); // 'this' refers to the statement context
-      }
-    });
+ipcMain.on('select-directory', async (event) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
   });
-};
+  event.reply('directory-selected', result.filePaths);
+});
 
 const fetchNotes = (noteID?: number): Promise<any[]> => {
   let sql = 'SELECT * FROM nodes';
@@ -70,6 +71,47 @@ const fetchNotes = (noteID?: number): Promise<any[]> => {
   });
 };
 
+ipcMain.handle(
+  'get-all-notes',
+  async (): Promise<{
+    success: boolean;
+    notes?: any[];
+    error: Error | undefined;
+  }> => {
+    try {
+      const notes = await fetchNotes();
+      return { success: true, notes, error: undefined };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+);
+
+const insertNote = (note: Note) => {
+  const sql = 'INSERT INTO nodes (title, content) VALUES (?, ?)';
+  return new Promise((resolve, reject) => {
+    db.run(sql, [note.title, note.content], function (this: any, err: Error) {
+      if (err) {
+        reject(new Error(err.message));
+      } else {
+        resolve(this.lastID); // 'this' refers to the statement context
+      }
+    });
+  });
+};
+
+ipcMain.handle('add-note', async (_event, { newNote }) => {
+  try {
+    const id = await insertNote(newNote);
+    const activeNote = await fetchNotes(id as number);
+    return { success: true, activeNote };
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
+});
+
+
+
 const updateNote = (updatedNote: Note) => {
   const sql = 'UPDATE nodes SET title = ?, content = ? WHERE id = ?';
   return new Promise((resolve, reject) => {
@@ -86,6 +128,19 @@ const updateNote = (updatedNote: Note) => {
     );
   });
 };
+
+ipcMain.on('update-note', async (event, { updatedNote }) => {
+  try {
+    const changes = await updateNote(updatedNote);
+    event.reply('update-note-response', { success: true, changes });
+  } catch (error: any) {
+    console.error('Update failed:', error);
+    event.reply('update-note-response', {
+      success: false,
+      error: error.message,
+    });
+  }
+});
 
 const deleteNote = async (id: number): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -109,6 +164,22 @@ const deleteNote = async (id: number): Promise<void> => {
   });
 };
 
+ipcMain.on(
+  'delete-note',
+  async (event: IpcMainEvent, { noteID }: { noteID: number }) => {
+    try {
+      await deleteNote(noteID);
+      event.reply('delete-note-response', { success: true });
+    } catch (error: any) {
+      event.reply('delete-note-response', {
+        success: false,
+        error: error.message,
+      });
+      console.error('Error deleting note:', error);
+    }
+  },
+);
+
 const addLink = async (link: Link): Promise<void> => {
   const { source, target, linkTag } = link;
   return new Promise((resolve, reject) => {
@@ -126,6 +197,19 @@ const addLink = async (link: Link): Promise<void> => {
   });
 };
 
+ipcMain.on('add-link', async (event: IpcMainEvent, link: Link) => {
+  try {
+    await addLink(link);
+    event.reply('add-link-response', { success: true });
+  } catch (error: any) {
+    event.reply('add-link-response', {
+      success: false,
+      error: error.message,
+    });
+    console.error('Error adding link:', error);
+  }
+});
+
 const getAllLinks = async (): Promise<{
   success: boolean;
   allLinks?: any[];
@@ -142,6 +226,15 @@ const getAllLinks = async (): Promise<{
   });
 };
 
+ipcMain.handle('get-all-links', async () => {
+  try {
+    const result = await getAllLinks();
+    return result;
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
 const deleteLink = async (id: number): Promise<void> => {
   return new Promise((resolve, reject) => {
     db.run('DELETE FROM links WHERE id = ?', id, (err: Error) => {
@@ -154,88 +247,6 @@ const deleteLink = async (id: number): Promise<void> => {
   });
 };
 
-ipcMain.handle('add-note', async (_event, { newNote }) => {
-  try {
-    const id = await insertNote(newNote);
-    const activeNote = await fetchNotes(id as number);
-    return { success: true, activeNote };
-  } catch (error: any) {
-    throw new Error(error.message);
-  }
-});
-
-ipcMain.on('update-note', async (event, { updatedNote }) => {
-  try {
-    const changes = await updateNote(updatedNote);
-    event.reply('update-note-response', { success: true, changes });
-  } catch (error: any) {
-    console.error('Update failed:', error);
-    event.reply('update-note-response', {
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-// Handle IPC event for reading all notes
-ipcMain.handle(
-  'get-all-notes',
-  async (): Promise<{
-    success: boolean;
-    notes?: any[];
-    error: Error | undefined;
-  }> => {
-    try {
-      const notes = await fetchNotes();
-      return { success: true, notes, error: undefined };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-);
-
-// IPC event for deleting a note
-ipcMain.on(
-  'delete-note',
-  async (event: IpcMainEvent, { noteID }: { noteID: number }) => {
-    try {
-      await deleteNote(noteID);
-      event.reply('delete-note-response', { success: true });
-    } catch (error: any) {
-      event.reply('delete-note-response', {
-        success: false,
-        error: error.message,
-      });
-      console.error('Error deleting note:', error);
-    }
-  },
-);
-
-// IPC event for adding a link
-ipcMain.on('add-link', async (event: IpcMainEvent, link: Link) => {
-  try {
-    await addLink(link);
-    event.reply('add-link-response', { success: true });
-  } catch (error: any) {
-    event.reply('add-link-response', {
-      success: false,
-      error: error.message,
-    });
-    console.error('Error adding link:', error);
-  }
-});
-
-// IPC event for getting all links
-ipcMain.handle('get-all-links', async () => {
-  try {
-    const result = await getAllLinks();
-    return result;
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
-// IPC event for deleting a link
 ipcMain.on('delete-link', async (event: IpcMainEvent, id: number) => {
   try {
     await deleteLink(id);

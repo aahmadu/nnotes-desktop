@@ -1,12 +1,11 @@
 import { useEffect, useState, FunctionComponent } from 'react';
-import './Sidebar.css';
 import { Menu } from 'antd';
 import { FileOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Link, Note } from '../../types/general';
 
 interface LinkNavProps {
-  activeNote?: Note; // Allow activeNote to be undefined
+  activeNote: Note;
   notes: Note[];
   links: Link[];
   onNoteSelect: (note: Note) => void;
@@ -19,7 +18,9 @@ const LinkNav: FunctionComponent<LinkNavProps> = function LinkNav({
   links,
   onNoteSelect,
 }) {
-  const [selectedKeys, setSelectedKeys] = useState<string[]>(activeNote ? [activeNote.id.toString()] : []);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(
+    activeNote ? [activeNote.id.toString()] : [],
+  );
 
   useEffect(() => {
     if (activeNote) {
@@ -32,7 +33,7 @@ const LinkNav: FunctionComponent<LinkNavProps> = function LinkNav({
       if (!acc[link.linkTag]) {
         acc[link.linkTag] = [];
       }
-      const parentNote = notes.find(note => note.id === link.source);
+      const parentNote = notes.find((note) => note.id === link.source);
       if (parentNote) {
         acc[link.linkTag].push(parentNote);
       }
@@ -45,7 +46,7 @@ const LinkNav: FunctionComponent<LinkNavProps> = function LinkNav({
       if (!acc[link.linkTag]) {
         acc[link.linkTag] = [];
       }
-      const childNote = notes.find(note => note.id === link.target);
+      const childNote = notes.find((note) => note.id === link.target);
       if (childNote) {
         acc[link.linkTag].push(childNote);
       }
@@ -54,10 +55,10 @@ const LinkNav: FunctionComponent<LinkNavProps> = function LinkNav({
   }, {});
 
   // Convert to Ant Design Menu items format
-  const parentItems = Object.keys(parentsByTags).map(tag => ({
+  const parentItems = Object.keys(parentsByTags).map((tag) => ({
     key: `parent-${tag}`,
     label: tag,
-    children: parentsByTags[tag].map(note => ({
+    children: parentsByTags[tag].map((note) => ({
       key: `parent-${note.id}`,
       label: note.title,
       icon: <FileOutlined />,
@@ -65,10 +66,10 @@ const LinkNav: FunctionComponent<LinkNavProps> = function LinkNav({
     })),
   }));
 
-  const childItems = Object.keys(childrenByTags).map(tag => ({
+  const childItems = Object.keys(childrenByTags).map((tag) => ({
     key: `child-${tag}`,
     label: tag,
-    children: childrenByTags[tag].map(note => ({
+    children: childrenByTags[tag].map((note) => ({
       key: `child-${note.id}`,
       label: note.title,
       icon: <FileOutlined />,
@@ -98,10 +99,10 @@ const LinkNav: FunctionComponent<LinkNavProps> = function LinkNav({
   ];
 
   return (
-    <div className="sidebar-container">
+    <div className="linknav-container">
       <Menu
-        style={{ width: '100%' }}
-        className="menu-container"
+        style={{ width: '100%', overflowY: 'auto' }}
+        className="linknav-menu-container"
         mode="inline"
         items={items}
         selectedKeys={selectedKeys}
