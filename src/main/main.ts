@@ -22,7 +22,7 @@ import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
-import db from '../data/data';
+import AtlasDatabase from '../data/data';
 import { Note, Link } from '../types/general';
 
 class AppUpdater {
@@ -35,41 +35,71 @@ class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
+const notesDb = AtlasDatabase.getInstance();
+console.log('notesDb:', notesDb.isInitialized);
+
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
 
-ipcMain.on('select-directory', async (event) => {
+ipcMain.on('check-db', async (event, arg) => {
+  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
+  console.log(msgTemplate(arg));
+  event.reply('check-db', notesDb.isInitialized);
+});
+
+ipcMain.on('get-nnote-path', async (event) => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
   });
   event.reply('directory-selected', result.filePaths);
 });
 
-const fetchNotes = (noteID?: number): Promise<any[]> => {
-  let sql = 'SELECT * FROM nodes';
-  const params: number[] = [];
-
-  // If a noteID is provided, modify the query to fetch only that specific note
-  if (noteID) {
-    sql += ' WHERE id = ?';
-    params.push(noteID);
+ipcMain.on('update-nnote-path', async (event, newPath) => {
+  const { nnoteDir } = newPath;
+  try {
+    notesDb.updateConfigPath(nnoteDir);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating config path:', error);
+    return { success: false, error: error.message };
   }
+});
 
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err: Error, rows: Note[]) => {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        // If noteID is provided, there should ideally be only one note or none
-        const result = noteID ? rows[0] : rows;
-        resolve(result as any[]); // Cast result to any[]
-      }
+ipcMain.handle(
+  'get-nnote-path',
+  async (): Promise<{
+    success: boolean;
+    nnotePath?: string;
+    error: Error | undefined;
+  }> => {
+    try {
+      const nnotePath = await notesDb.getPath();
+      return { success: true, nnotePath, error: undefined };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+);
+
+ipcMain.handle('select-directory', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
     });
-  });
-};
+
+    if (result.canceled) {
+      return { success: false, error: 'Directory selection was cancelled.' };
+    }
+
+    return { success: true, filePath: result.filePaths[0] };
+  } catch (error) {
+    console.error('Error selecting directory:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle(
   'get-all-notes',
@@ -79,7 +109,7 @@ ipcMain.handle(
     error: Error | undefined;
   }> => {
     try {
-      const notes = await fetchNotes();
+      const notes = await notesDb.fetchNotes(undefined);
       return { success: true, notes, error: undefined };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -87,51 +117,19 @@ ipcMain.handle(
   },
 );
 
-const insertNote = (note: Note) => {
-  const sql = 'INSERT INTO nodes (title, content) VALUES (?, ?)';
-  return new Promise((resolve, reject) => {
-    db.run(sql, [note.title, note.content], function (this: any, err: Error) {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve(this.lastID); // 'this' refers to the statement context
-      }
-    });
-  });
-};
-
 ipcMain.handle('add-note', async (_event, { newNote }) => {
   try {
-    const id = await insertNote(newNote);
-    const activeNote = await fetchNotes(id as number);
+    const id = await notesDb.insertNote(newNote);
+    const activeNote = await notesDb.fetchNotes(id as number);
     return { success: true, activeNote };
   } catch (error: any) {
     throw new Error(error.message);
   }
 });
 
-
-
-const updateNote = (updatedNote: Note) => {
-  const sql = 'UPDATE nodes SET title = ?, content = ? WHERE id = ?';
-  return new Promise((resolve, reject) => {
-    db.run(
-      sql,
-      [updatedNote.title, updatedNote.content, updatedNote.id],
-      function (this: any, err: Error) {
-        if (err) {
-          reject(new Error(err.message));
-        } else {
-          resolve(this.changes); // 'this' refers to the statement context
-        }
-      },
-    );
-  });
-};
-
 ipcMain.on('update-note', async (event, { updatedNote }) => {
   try {
-    const changes = await updateNote(updatedNote);
+    const changes = await notesDb.updateNote(updatedNote);
     event.reply('update-note-response', { success: true, changes });
   } catch (error: any) {
     console.error('Update failed:', error);
@@ -142,33 +140,11 @@ ipcMain.on('update-note', async (event, { updatedNote }) => {
   }
 });
 
-const deleteNote = async (id: number): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'DELETE FROM links WHERE source = ? OR target = ?',
-      [id, id],
-      (linkErr: Error) => {
-        if (linkErr) {
-          reject(new Error(linkErr.message));
-        } else {
-          db.run('DELETE FROM nodes WHERE id = ?', [id], (err: Error) => {
-            if (err) {
-              reject(new Error(err.message));
-            } else {
-              resolve();
-            }
-          });
-        }
-      },
-    );
-  });
-};
-
 ipcMain.on(
   'delete-note',
   async (event: IpcMainEvent, { noteID }: { noteID: number }) => {
     try {
-      await deleteNote(noteID);
+      await notesDb.deleteNote(noteID);
       event.reply('delete-note-response', { success: true });
     } catch (error: any) {
       event.reply('delete-note-response', {
@@ -180,26 +156,9 @@ ipcMain.on(
   },
 );
 
-const addLink = async (link: Link): Promise<void> => {
-  const { source, target, linkTag } = link;
-  return new Promise((resolve, reject) => {
-    db.run(
-      'INSERT INTO links (source, target, linkTag) VALUES (?, ?, ?)',
-      [source, target, linkTag],
-      (err: Error) => {
-        if (err) {
-          reject(new Error(err.message));
-        } else {
-          resolve();
-        }
-      },
-    );
-  });
-};
-
 ipcMain.on('add-link', async (event: IpcMainEvent, link: Link) => {
   try {
-    await addLink(link);
+    await notesDb.addLink(link);
     event.reply('add-link-response', { success: true });
   } catch (error: any) {
     event.reply('add-link-response', {
@@ -210,46 +169,18 @@ ipcMain.on('add-link', async (event: IpcMainEvent, link: Link) => {
   }
 });
 
-const getAllLinks = async (): Promise<{
-  success: boolean;
-  allLinks?: any[];
-  error?: string;
-}> => {
-  return new Promise((resolve, reject) => {
-    db.all('SELECT * FROM links', (err: Error, rows: Link[]) => {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve({ success: true, allLinks: rows });
-      }
-    });
-  });
-};
-
 ipcMain.handle('get-all-links', async () => {
   try {
-    const result = await getAllLinks();
-    return result;
+    const result = await notesDb.getAllLinks();
+    return { success: true, allLinks:result, error: undefined };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 });
 
-const deleteLink = async (id: number): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    db.run('DELETE FROM links WHERE id = ?', id, (err: Error) => {
-      if (err) {
-        reject(new Error(err.message));
-      } else {
-        resolve();
-      }
-    });
-  });
-};
-
 ipcMain.on('delete-link', async (event: IpcMainEvent, id: number) => {
   try {
-    await deleteLink(id);
+    await notesDb.deleteLink(id);
     event.reply('delete-link-response', { success: true });
   } catch (error: any) {
     event.reply('delete-link-response', {
@@ -327,7 +258,7 @@ const createWindow = async () => {
     mainWindow = null;
   });
 
-  const menuBuilder = new MenuBuilder(mainWindow);
+  const menuBuilder = new MenuBuilder(mainWindow, );
   menuBuilder.buildMenu();
 
   // Open urls in the user's browser
@@ -362,5 +293,9 @@ app
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
+    if (!notesDb.isInitialized) {
+      console.log('Sending message:', notesDb.isInitialized, mainWindow);
+      mainWindow.webContents.send('show-settings');
+    }
   })
   .catch(console.log);

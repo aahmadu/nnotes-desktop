@@ -10,7 +10,8 @@ export type Channels =
   | 'delete-note'
   | 'add-link'
   | 'get-all-links'
-  | 'select-directory';
+  | 'select-directory'
+  | 'get-nnote-path';
 
 const electronHandler = {
   ipcRenderer: {

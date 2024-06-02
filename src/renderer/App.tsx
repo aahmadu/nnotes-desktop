@@ -1,5 +1,5 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
-import { useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 
 import { FloatButton } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
@@ -26,6 +26,7 @@ function Home() {
   const [allLinkTags, setallLinkTags] = useState<string[]>([]);
   const [showLinkMenu, setShowLinkMenu] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [dbConnected, setDbConnected] = useState(true);
 
   const fetchNotes = async () => {
     try {
@@ -45,6 +46,7 @@ function Home() {
     try {
       const noteResponse =
         await window.electron.ipcRenderer.invokeMessage('get-all-links');
+      console.log('All links:', noteResponse.success);
       if (noteResponse && noteResponse.success) {
         setallLinks(noteResponse.allLinks);
         setallLinkTags(
@@ -61,13 +63,30 @@ function Home() {
   };
 
   useEffect(() => {
+    console.log('Fetching notes and links');
     fetchNotes();
     fetchLinks();
-  }, []);
 
-  const handleSelectDirectory = () => {
-    window.electron.ipcRenderer.sendMessage('select-directory');
-  };
+    const handleOpenSettings = () => {
+      setShowSettingsMenu(true);
+    };
+
+    // calling IPC exposed from preload script
+    window.electron.ipcRenderer.once('check-db', (arg) => {
+      // eslint-disable-next-line no-console
+      if (!arg) {
+        setDbConnected(false);
+        setShowSettingsMenu(true);
+      }
+    });
+    window.electron.ipcRenderer.sendMessage('check-db', ['ping']);
+
+    window.electron.ipcRenderer.on('open-settings', handleOpenSettings);
+
+    return () => {
+      window.electron.ipcRenderer.removeListener('open-settings', handleOpenSettings);
+    };
+  }, []);
 
   const handleNoteSelect = (note: Note) => {
     setActiveNote(note);
@@ -85,10 +104,6 @@ function Home() {
 
   const handleClickLinkMenu = () => {
     setShowLinkMenu(true);
-  };
-
-  const handleCancelLinkMenu = () => {
-    setShowLinkMenu(false);
   };
 
   const handleAddNote = async (note: Note) => {
@@ -185,20 +200,16 @@ function Home() {
         <LinkMenu
           allNotes={notes}
           allLinkTags={allLinkTags}
-          onCancelMenu={handleCancelLinkMenu}
+          onCancelMenu={() => setShowLinkMenu(false)}
           onCreateLink={handleCreateLink}
         />
       )}
       {showSettingsMenu && (
         <SettingsMenu
-          onCancelMenu={handleCancelLinkMenu}
-          handleSelectDirectory={handleSelectDirectory}
+          onCancelMenu={() => setShowSettingsMenu(false)}
+          dbConnected={dbConnected}
         />
       )}
-      <FloatButton
-        icon={<SettingOutlined />}
-        onClick={() => setShowSettingsMenu(true)}
-      />
       <PanelGroup className="container" direction="horizontal">
         <Panel defaultSize={20} minSize={20} maxSize={30}>
           <Sidebar
