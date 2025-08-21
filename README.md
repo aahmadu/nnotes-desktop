@@ -1,6 +1,6 @@
-# NNotes: A Graph-Based Note-Taking App
+# NNotes: A graph-based note-taking app with directional, typed links and powerful queries.
 
-NNotes is a note-taking application designed to help users not only store information but also visually connect and relate different pieces of knowledge. It leverages a graph-based approach to organize notes, making it easy to see and explore the connections between concepts.
+nnotes is a graph-powered note system inspired by Obsidian, but with a focus on meaningful connections. Notes can be linked with directional, tagged edges, making it easy to model relationships, run queries, and visualize how changes ripple through your knowledge. Whether you’re writing a novel, mapping research, or modeling complex systems, nnotes lets you think in networks instead of folders.
 
 ## Features
 
