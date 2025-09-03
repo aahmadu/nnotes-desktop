@@ -18,30 +18,23 @@ const SettingsMenu: FunctionComponent<SettingsMenuProps> =
     const [isPathValid, setIsPathValid] = useState<boolean>(false);
 
     const getPath = async () => {
-      try {
-        const noteResponse =
-          await window.electron.ipcRenderer.invokeMessage('get-nnote-path');
-        if (noteResponse && noteResponse.success) {
-          console.log('Note path:', noteResponse.nnotePath);
-          setNnotePath(noteResponse.nnotePath);
-          setIsPathValid(true); // Assume the path from getPath is valid
-        } else {
-          console.error('Failed to get notes:', noteResponse.error);
-        }
-      } catch (error) {
-        console.error('Error when getting notes:', (error as Error).message);
+      const res = await window.api.config.get();
+      if (res.success) {
+        setNnotePath(res.config.nnotesFilePath);
+        setIsPathValid(!!res.config.nnotesFilePath);
+      } else {
+        console.error('Failed to get config:', res.error);
       }
     };
 
     const handleSelectDirectory = async () => {
       try {
         // Invoke the select-directory IPC message to open the directory dialog
-        const result =
-          await window.electron.ipcRenderer.invokeMessage('select-directory');
+        const result = await window.api.config.selectDirectory();
 
         // Check if the directory selection was successful
         if (result.success) {
-          setNnotePath(result.filePath); // Update the state with the selected directory path
+          setNnotePath(result.filePath);
           setIsPathValid(true); // Set the path as valid
 
           console.log('Directory selected:', result.filePath); // Log the selected directory path
@@ -67,14 +60,11 @@ const SettingsMenu: FunctionComponent<SettingsMenuProps> =
 
     const handleOnOk = async (nnoteDir: string) => {
       console.log('Selected path:', nnoteDir);
-      try {
-        window.electron.ipcRenderer.sendMessage('update-nnote-path', {
-          nnoteDir,
-        });
-        onCancelMenu(); // Close the modal after updating the path
-      } catch (error) {
-        console.error('Error when updating path:', (error as Error).message);
+      const res = await window.api.config.updatePath(nnoteDir);
+      if (!res.success) {
+        console.error('Error when updating path:', res.error);
       }
+      onCancelMenu();
     };
 
     return (
