@@ -9,21 +9,16 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import {
-  app,
-  BrowserWindow,
-  shell,
-  ipcMain,
-  dialog,
-  IpcMainEvent,
-} from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
-import AtlasDatabase from '../data/data';
-import { Note, Link } from '../types/general';
+import AtlasDatabase from './db/AtlasDatabase';
+import { registerNotesIpc } from './ipc/notes';
+import { registerLinksIpc } from './ipc/links';
+import { registerConfigIpc } from './ipc/config';
 
 class AppUpdater {
   constructor() {
@@ -36,160 +31,7 @@ class AppUpdater {
 let mainWindow: BrowserWindow | null = null;
 
 const notesDb = AtlasDatabase.getInstance();
-console.log('notesDb:', notesDb.isInitialized);
-
-ipcMain.on('ipc-example', async (event, arg) => {
-  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-  console.log(msgTemplate(arg));
-  event.reply('ipc-example', msgTemplate('pong'));
-});
-
-ipcMain.on('check-db', async (event, arg) => {
-  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-  console.log(msgTemplate(arg));
-  event.reply('check-db', notesDb.isInitialized);
-});
-
-ipcMain.on('get-nnote-path', async (event) => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory'],
-  });
-  event.reply('directory-selected', result.filePaths);
-});
-
-ipcMain.on('update-nnote-path', async (event, newPath) => {
-  const { nnoteDir } = newPath;
-  try {
-    notesDb.updateConfigPath(nnoteDir);
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating config path:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle(
-  'get-nnote-path',
-  async (): Promise<{
-    success: boolean;
-    nnotePath?: string;
-    error: Error | undefined;
-  }> => {
-    try {
-      const nnotePath = await notesDb.getPath();
-      return { success: true, nnotePath, error: undefined };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-);
-
-ipcMain.handle('select-directory', async () => {
-  try {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ['openDirectory'],
-    });
-
-    if (result.canceled) {
-      return { success: false, error: 'Directory selection was cancelled.' };
-    }
-
-    return { success: true, filePath: result.filePaths[0] };
-  } catch (error) {
-    console.error('Error selecting directory:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle(
-  'get-all-notes',
-  async (): Promise<{
-    success: boolean;
-    notes?: any[];
-    error: Error | undefined;
-  }> => {
-    try {
-      const notes = await notesDb.fetchNotes(undefined);
-      return { success: true, notes, error: undefined };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-);
-
-ipcMain.handle('add-note', async (_event, { newNote }) => {
-  try {
-    const id = await notesDb.insertNote(newNote);
-    const activeNote = await notesDb.fetchNotes(id as number);
-    return { success: true, activeNote };
-  } catch (error: any) {
-    throw new Error(error.message);
-  }
-});
-
-ipcMain.on('update-note', async (event, { updatedNote }) => {
-  try {
-    const changes = await notesDb.updateNote(updatedNote);
-    event.reply('update-note-response', { success: true, changes });
-  } catch (error: any) {
-    console.error('Update failed:', error);
-    event.reply('update-note-response', {
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
-ipcMain.on(
-  'delete-note',
-  async (event: IpcMainEvent, { noteID }: { noteID: number }) => {
-    try {
-      await notesDb.deleteNote(noteID);
-      event.reply('delete-note-response', { success: true });
-    } catch (error: any) {
-      event.reply('delete-note-response', {
-        success: false,
-        error: error.message,
-      });
-      console.error('Error deleting note:', error);
-    }
-  },
-);
-
-ipcMain.on('add-link', async (event: IpcMainEvent, link: Link) => {
-  try {
-    await notesDb.addLink(link);
-    event.reply('add-link-response', { success: true });
-  } catch (error: any) {
-    event.reply('add-link-response', {
-      success: false,
-      error: error.message,
-    });
-    console.error('Error adding link:', error);
-  }
-});
-
-ipcMain.handle('get-all-links', async () => {
-  try {
-    const result = await notesDb.getAllLinks();
-    return { success: true, allLinks:result, error: undefined };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.on('delete-link', async (event: IpcMainEvent, id: number) => {
-  try {
-    await notesDb.deleteLink(id);
-    event.reply('delete-link-response', { success: true });
-  } catch (error: any) {
-    event.reply('delete-link-response', {
-      success: false,
-      error: error.message,
-    });
-    console.error('Error deleting link:', error);
-  }
-});
+console.log('notesDb initialized:', notesDb.isInitialized);
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -200,6 +42,8 @@ const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
 if (isDebug) {
+  // Lazy-load to avoid bundling overhead in production
+  // eslint-disable-next-line global-require
   require('electron-debug')();
 }
 
@@ -235,6 +79,9 @@ const createWindow = async () => {
     height: 728,
     icon: getAssetPath('icon.png'),
     webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
@@ -288,14 +135,17 @@ app
   .whenReady()
   .then(() => {
     createWindow();
+    // Register IPC handlers once the window is ready
+    registerNotesIpc();
+    registerLinksIpc();
+    registerConfigIpc(mainWindow);
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
-    if (!notesDb.isInitialized) {
-      console.log('Sending message:', notesDb.isInitialized, mainWindow);
-      mainWindow.webContents.send('show-settings');
+    if (!notesDb.isInitialized && mainWindow) {
+      mainWindow.webContents.send('open-settings');
     }
   })
   .catch(console.log);

@@ -1,43 +1,48 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
+import type { Note, Link } from '../types/general';
 
-export type Channels =
-  | 'ipc-example'
-  | 'add-note'
-  | 'update-note'
-  | 'get-all-notes'
-  | 'delete-note'
-  | 'add-link'
-  | 'get-all-links'
-  | 'select-directory'
-  | 'get-nnote-path';
+type Ok<T> = { success: true } & T;
+type Err = { success: false; error: string };
+type IpcResponse<T> = Ok<T> | Err;
 
-const electronHandler = {
-  ipcRenderer: {
-    // Send message without expecting a response
-    sendMessage(channel: Channels, ...args: unknown[]) {
-      ipcRenderer.send(channel, ...args);
-    },
-    // Send message and expect a response (promise-based)
-    invokeMessage: (channel: Channels, ...args: unknown[]): Promise<any> => {
-      return ipcRenderer.invoke(channel, ...args);
-    },
-    on(channel: Channels, func: (...args: unknown[]) => void) {
-      const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
-        func(...args);
-      ipcRenderer.on(channel, subscription);
-
-      return () => {
-        ipcRenderer.removeListener(channel, subscription);
-      };
-    },
-    once(channel: Channels, func: (...args: unknown[]) => void) {
-      ipcRenderer.once(channel, (_event, ...args) => func(...args));
+const api = {
+  config: {
+    get: (): Promise<IpcResponse<{ config: { nnotesFilePath: string } }>> =>
+      ipcRenderer.invoke('config:get'),
+    selectDirectory: (): Promise<IpcResponse<{ filePath: string }>> =>
+      ipcRenderer.invoke('config:selectDirectory'),
+    updatePath: (dir: string): Promise<IpcResponse<{}>> =>
+      ipcRenderer.invoke('config:updatePath', dir),
+  },
+  notes: {
+    list: (): Promise<IpcResponse<{ notes: Note[] }>> =>
+      ipcRenderer.invoke('notes:list'),
+    add: (note: Note): Promise<IpcResponse<{ activeNote: Note }>> =>
+      ipcRenderer.invoke('notes:add', note),
+    update: (note: Note): Promise<IpcResponse<{ changes: number }>> =>
+      ipcRenderer.invoke('notes:update', note),
+    delete: (id: number): Promise<IpcResponse<{}>> =>
+      ipcRenderer.invoke('notes:delete', id),
+  },
+  links: {
+    list: (): Promise<IpcResponse<{ allLinks: Link[] }>> =>
+      ipcRenderer.invoke('links:list'),
+    add: (link: Link): Promise<IpcResponse<{}>> =>
+      ipcRenderer.invoke('links:add', link),
+    delete: (id: number): Promise<IpcResponse<{}>> =>
+      ipcRenderer.invoke('links:delete', id),
+  },
+  events: {
+    onOpenSettings: (handler: () => void) => {
+      const listener = () => handler();
+      ipcRenderer.on('open-settings', listener);
+      return () => ipcRenderer.removeListener('open-settings', listener);
     },
   },
 };
 
-contextBridge.exposeInMainWorld('electron', electronHandler);
+contextBridge.exposeInMainWorld('api', api);
 
-export type ElectronHandler = typeof electronHandler;
+export type ApiType = typeof api;

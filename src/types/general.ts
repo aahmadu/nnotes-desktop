@@ -1,12 +1,12 @@
 export type Note = {
-  id: number;
-  title: string;
-  content: string;
-  date: string;
+  id?: number;
+  title?: string;
+  content?: string;
+  date?: string;
 };
 
 export type Link = {
-  id: number;
+  id?: number;
   source: number;
   target: number;
   linkTag: string;

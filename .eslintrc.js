@@ -13,7 +13,26 @@ module.exports = {
     '@typescript-eslint/no-shadow': 'error',
     'no-unused-vars': 'off',
     '@typescript-eslint/no-unused-vars': 'error',
+    // Keep DX-friendly while migrating types
+    '@typescript-eslint/no-explicit-any': 'warn',
   },
+  overrides: [
+    // D3 code mutates simulation/node objects; relax a few rules just for this file
+    {
+      files: ['src/renderer/components/GraphView.tsx'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        'no-param-reassign': 'off',
+      },
+    },
+    // Allow console in main process and scripts
+    {
+      files: ['src/main/**/*.ts', '.erb/**/*.ts'],
+      rules: {
+        'no-console': 'off',
+      },
+    },
+  ],
   parserOptions: {
     ecmaVersion: 2022,
     sourceType: 'module',

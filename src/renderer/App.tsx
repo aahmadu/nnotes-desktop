@@ -29,63 +29,38 @@ function Home() {
   const [dbConnected, setDbConnected] = useState(true);
 
   const fetchNotes = async () => {
-    try {
-      const noteResponse =
-        await window.electron.ipcRenderer.invokeMessage('get-all-notes');
-      if (noteResponse && noteResponse.success) {
-        setNotes(noteResponse.notes);
-      } else {
-        console.error('Failed to get notes:', noteResponse.error);
-      }
-    } catch (error) {
-      console.error('Error when getting notes:', (error as Error).message);
-    }
+    const res = await window.api.notes.list();
+    if (res.success) setNotes(res.notes);
+    else console.error('Failed to get notes:', res.error);
   };
 
   const fetchLinks = async () => {
-    try {
-      const noteResponse =
-        await window.electron.ipcRenderer.invokeMessage('get-all-links');
-      console.log('All links:', noteResponse.success);
-      if (noteResponse && noteResponse.success) {
-        setallLinks(noteResponse.allLinks);
-        setallLinkTags(
-          Array.from(
-            new Set(noteResponse.allLinks.map((link: Link) => link.linkTag)),
-          ),
-        );
-      } else {
-        console.error('Failed to get tags:', noteResponse.error);
-      }
-    } catch (error) {
-      console.error('Error when getting tags:', (error as Error).message);
+    const res = await window.api.links.list();
+    if (res.success) {
+      setallLinks(res.allLinks);
+      setallLinkTags(Array.from(new Set(res.allLinks.map((l: Link) => l.linkTag))));
+    } else {
+      console.error('Failed to get tags:', res.error);
     }
   };
 
   useEffect(() => {
-    console.log('Fetching notes and links');
-    fetchNotes();
-    fetchLinks();
-
-    const handleOpenSettings = () => {
-      setShowSettingsMenu(true);
-    };
-
-    // calling IPC exposed from preload script
-    window.electron.ipcRenderer.once('check-db', (arg) => {
-      // eslint-disable-next-line no-console
-      if (!arg) {
+    const init = async () => {
+      const cfg = await window.api.config.get();
+      const hasPath = cfg.success && !!cfg.config.nnotesFilePath;
+      if (hasPath) {
+        setDbConnected(true);
+        fetchNotes();
+        fetchLinks();
+      } else {
         setDbConnected(false);
         setShowSettingsMenu(true);
       }
-    });
-    window.electron.ipcRenderer.sendMessage('check-db', ['ping']);
-
-    window.electron.ipcRenderer.on('open-settings', handleOpenSettings);
-
-    return () => {
-      window.electron.ipcRenderer.removeListener('open-settings', handleOpenSettings);
     };
+    init();
+
+    const unsubscribe = window.api.events.onOpenSettings(() => setShowSettingsMenu(true));
+    return () => { unsubscribe(); };
   }, []);
 
   const handleNoteSelect = (note: Note) => {
@@ -98,8 +73,10 @@ function Home() {
 
   const handleDeleteNote = (noteID: number) => {
     setActiveNote(undefined);
-    window.electron.ipcRenderer.sendMessage('delete-note', { noteID });
-    setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteID));
+    window.api.notes.delete(noteID).then((res) => {
+      if (!res.success) console.error('Delete failed:', res.error);
+      setNotes((prevNotes) => prevNotes.filter((note) => note.id !== noteID));
+    });
   };
 
   const handleClickLinkMenu = () => {
@@ -107,19 +84,10 @@ function Home() {
   };
 
   const handleAddNote = async (note: Note) => {
-    try {
-      const response = await window.electron.ipcRenderer.invokeMessage(
-        'add-note',
-        { newNote: note },
-      );
-      if (response && response.success) {
-        return response.activeNote;
-      }
-      console.error('Failed to add note:', response.error);
-    } catch (error) {
-      console.error('Error when adding note:', (error as Error).message);
-    }
-    return null;
+    const response = await window.api.notes.add(note);
+    if (response.success) return response.activeNote;
+    console.error('Failed to add note:', response.error);
+    return note;
   };
 
   const handleCreateLink = async (
@@ -147,12 +115,7 @@ function Home() {
       target = activeNote!.id;
     }
     try {
-      console.log('Create link:', source, target, linkTag);
-      window.electron.ipcRenderer.sendMessage('add-link', {
-        source,
-        target,
-        linkTag,
-      });
+      await window.api.links.add({ source, target, linkTag });
     } catch (error) {
       console.error('Error when adding link:', (error as Error).message);
     }
@@ -166,30 +129,17 @@ function Home() {
   const updateDatabase = useCallback(
     debounce(async (updatedNote: Note) => {
       if (updatedNote.id === undefined) {
-        try {
-          const response = await window.electron.ipcRenderer.invokeMessage(
-            'add-note',
-            { newNote: updatedNote },
-          );
-          if (response && response.success) {
-            setActiveNote(response.activeNote); // Update the noteID state with the new ID from the database
-          } else {
-            console.error('Failed to add note:', response.error);
-          }
-        } catch (error) {
-          console.error('Error when adding note:', (error as Error).message);
+        const response = await window.api.notes.add(updatedNote);
+        if (response.success) {
+          setActiveNote(response.activeNote);
+        } else {
+          console.error('Failed to add note:', response.error);
         }
-        fetchNotes();
       } else {
-        try {
-          window.electron.ipcRenderer.sendMessage('update-note', {
-            updatedNote,
-          });
-        } catch (error) {
-          console.error('Error when updating note:', (error as Error).message);
-        }
-        fetchNotes();
+        const res = await window.api.notes.update(updatedNote);
+        if (!res.success) console.error('Failed to update note:', res.error);
       }
+      fetchNotes();
     }, 2000),
     [],
   ); // Debounce for 2 seconds
@@ -206,7 +156,12 @@ function Home() {
       )}
       {showSettingsMenu && (
         <SettingsMenu
-          onCancelMenu={() => setShowSettingsMenu(false)}
+          onCancelMenu={() => {
+            setShowSettingsMenu(false);
+            setDbConnected(true);
+            fetchNotes();
+            fetchLinks();
+          }}
           dbConnected={dbConnected}
         />
       )}
