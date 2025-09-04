@@ -45,12 +45,21 @@ function Home() {
   };
 
   useEffect(() => {
-    console.log('Fetching notes and links');
-    fetchNotes();
-    fetchLinks();
+    const init = async () => {
+      const cfg = await window.api.config.get();
+      const hasPath = cfg.success && !!cfg.config.nnotesFilePath;
+      if (hasPath) {
+        setDbConnected(true);
+        fetchNotes();
+        fetchLinks();
+      } else {
+        setDbConnected(false);
+        setShowSettingsMenu(true);
+      }
+    };
+    init();
 
     const unsubscribe = window.api.events.onOpenSettings(() => setShowSettingsMenu(true));
-    if (!dbConnected) setShowSettingsMenu(true);
     return () => { unsubscribe(); };
   }, []);
 
@@ -147,7 +156,12 @@ function Home() {
       )}
       {showSettingsMenu && (
         <SettingsMenu
-          onCancelMenu={() => setShowSettingsMenu(false)}
+          onCancelMenu={() => {
+            setShowSettingsMenu(false);
+            setDbConnected(true);
+            fetchNotes();
+            fetchLinks();
+          }}
           dbConnected={dbConnected}
         />
       )}

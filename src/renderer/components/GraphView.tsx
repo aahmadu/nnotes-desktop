@@ -109,9 +109,9 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     // Per-type markers, as they don't inherit styles.
     svg
       .append('defs')
-      .selectAll("marker")
+      .selectAll('marker')
       .data(['link', 'outLink', 'inLink'])
-      .join("marker")
+      .join('marker')
       .attr('id', (d) => `arrow-${d}`)
       .attr('viewBox', '0 -5 10 10')
       .attr('refX', 15)
@@ -126,28 +126,34 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     simulation.current.on('tick', () => {
       const updateLinks = d3.select('.links').selectAll<SVGGElement, any>('g');
       const updateNodes = d3.select('.nodes').selectAll<SVGGElement, any>('g');
-      updateLinks.selectAll<SVGLineElement, any>('line')
-        .attr('x1', (d: any) => (d.source.x))
-        .attr('y1', (d: any) => (d.source.y))
-        .attr('x2', (d: any) => (d.target.x))
-        .attr('y2', (d: any) => (d.target.y));
+      updateLinks
+        .selectAll<SVGLineElement, any>('line')
+        .attr('x1', (d: any) => d.source.x)
+        .attr('y1', (d: any) => d.source.y)
+        .attr('x2', (d: any) => d.target.x)
+        .attr('y2', (d: any) => d.target.y);
 
-      updateLinks.selectAll<SVGTextElement, any>('text')
+      updateLinks
+        .selectAll<SVGTextElement, any>('text')
         .attr('x', (d: any) => (d.source.x + d.target.x) / 2)
         .attr('y', (d: any) => (d.source.y + d.target.y) / 2)
         .attr('dy', -5)
         .attr('transform', (d: any) => {
           const dx = d.target.x - d.source.x;
           const dy = d.target.y - d.source.y;
-          let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+          let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
           if (angle > 90 || angle < -90) angle += 180;
-          return `rotate(${angle}, ${(d.source.x + d.target.x) / 2}, ${(d.source.y + d.target.y) / 2})`;
+          return `rotate(${angle}, ${(d.source.x + d.target.x) / 2}, ${
+            (d.source.y + d.target.y) / 2
+          })`;
         });
 
-      updateNodes.select<SVGCircleElement>('circle')
+      updateNodes
+        .select<SVGCircleElement>('circle')
         .attr('cx', (d: any) => d.x)
         .attr('cy', (d: any) => d.y);
-      updateNodes.select<SVGTextElement>('text')
+      updateNodes
+        .select<SVGTextElement>('text')
         .attr('x', (d: any) => d.x)
         .attr('y', (d: any) => d.y + 13);
     });
@@ -161,16 +167,25 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
   }, []);
 
   function drag(sim: d3.Simulation<NodeDatum, LinkDatum>) {
-    function dragstarted(event: d3.D3DragEvent<SVGCircleElement, NodeDatum, NodeDatum>, d: any) {
+    function dragstarted(
+      event: d3.D3DragEvent<SVGCircleElement, NodeDatum, NodeDatum>,
+      d: any,
+    ) {
       if (!event.active) sim.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
     }
-    function dragged(event: d3.D3DragEvent<SVGCircleElement, NodeDatum, NodeDatum>, d: any) {
+    function dragged(
+      event: d3.D3DragEvent<SVGCircleElement, NodeDatum, NodeDatum>,
+      d: any,
+    ) {
       d.fx = event.x;
       d.fy = event.y;
     }
-    function dragended(event: d3.D3DragEvent<SVGCircleElement, NodeDatum, NodeDatum>, d: any) {
+    function dragended(
+      event: d3.D3DragEvent<SVGCircleElement, NodeDatum, NodeDatum>,
+      d: any,
+    ) {
       if (!event.active) sim.alphaTarget(0);
       d.fx = null;
       d.fy = null;
@@ -182,9 +197,20 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       .on('end', dragended);
   }
 
-  function updateGraph(newNodes: Note[], newLinks: Link[], activeNodeId?: number) {
-    const nodes: NodeDatum[] = newNodes.map((n) => ({ id: n.id as number, title: n.title || '' }));
-    const links: LinkDatum[] = newLinks.map((l) => ({ linkTag: l.linkTag, source: l.source, target: l.target }));
+  function updateGraph(
+    newNodes: Note[],
+    newLinks: Link[],
+    activeNodeId?: number,
+  ) {
+    const nodes: NodeDatum[] = newNodes.map((n) => ({
+      id: n.id as number,
+      title: n.title || '',
+    }));
+    const links: LinkDatum[] = newLinks.map((l) => ({
+      linkTag: l.linkTag,
+      source: l.source,
+      target: l.target,
+    }));
 
     const sim = simulation.current!;
     sim.nodes(nodes);
@@ -196,12 +222,17 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
 
     const linkJoin = linksGroup
       .selectAll<SVGGElement, any>('g')
-      .data(links, (d: any) => `${(d.source as any).id ?? d.source}-${(d.target as any).id ?? d.target}-${d.linkTag}`)
+      .data(
+        links,
+        (d: any) =>
+          `${(d.source as any).id ?? d.source}-${
+            (d.target as any).id ?? d.target
+          }-${d.linkTag}`,
+      )
       .join((enter) => {
         const g = enter.append('g');
         g.append('line').attr('stroke', colours.link);
-        g
-          .append('text')
+        g.append('text')
           .text((d: any) => d.linkTag)
           .attr('font-size', 6)
           .attr('text-anchor', 'middle')
@@ -214,9 +245,10 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       .data(nodes, (d: any) => d.id)
       .join((enter) => {
         const g = enter.append('g');
-        g.append('circle').attr('r', 4).call(drag(sim) as any);
-        g
-          .append('text')
+        g.append('circle')
+          .attr('r', 4)
+          .call(drag(sim) as any);
+        g.append('text')
           .attr('pointer-events', 'none')
           .attr('y', '1em')
           .attr('dy', 1)
@@ -226,17 +258,28 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
         return g;
       });
 
-    nodeJoin.selectAll<SVGCircleElement, any>('circle')
-      .attr('fill', (d: any) => (activeNodeId && d.id === activeNodeId ? colours.selectedNode : colours.node));
+    nodeJoin
+      .selectAll<SVGCircleElement, any>('circle')
+      .attr('fill', (d: any) =>
+        activeNodeId && d.id === activeNodeId
+          ? colours.selectedNode
+          : colours.node,
+      );
     nodeJoin.selectAll<SVGTextElement, any>('text').text((d: any) => d.title);
 
-    const applyLinkStyles = (selection: d3.Selection<SVGGElement, any, any, any>, nodeID?: number) => {
+    const applyLinkStyles = (
+      selection: d3.Selection<SVGGElement, any, any, any>,
+      nodeID?: number,
+    ) => {
       selection
         .select('line')
         .style('stroke', (d: any) => {
           const sourceID = (d.source as any).id ?? d.source;
           const targetID = (d.target as any).id ?? d.target;
-          if (nodeID !== undefined && (sourceID === nodeID || targetID === nodeID)) {
+          if (
+            nodeID !== undefined &&
+            (sourceID === nodeID || targetID === nodeID)
+          ) {
             return sourceID === nodeID ? colours.outLink : colours.inLink;
           }
           return colours.link;
@@ -244,8 +287,13 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
         .attr('marker-end', (d: any) => {
           const sourceID = (d.source as any).id ?? d.source;
           const targetID = (d.target as any).id ?? d.target;
-          if (nodeID !== undefined && (sourceID === nodeID || targetID === nodeID)) {
-            return sourceID === nodeID ? 'url(#arrow-outLink)' : 'url(#arrow-inLink)';
+          if (
+            nodeID !== undefined &&
+            (sourceID === nodeID || targetID === nodeID)
+          ) {
+            return sourceID === nodeID
+              ? 'url(#arrow-outLink)'
+              : 'url(#arrow-inLink)';
           }
           return 'url(#arrow-link)';
         });
@@ -277,7 +325,6 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     if (allNotes.length > 0) {
       updateGraph(allNotes, allLinks, activeNote?.id);
     }
-
   }, [activeNote, allNotes, allLinks]);
 
   return (
