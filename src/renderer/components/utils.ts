@@ -1,20 +1,21 @@
 import * as d3 from 'd3';
 
-type Link = {
-  source: number;
-  target: number;
+type LinkLite = {
   linkTag: string;
 };
 
-export function calculateLinkDistance(link: Link) {
+export function calculateLinkDistance(link: LinkLite): number {
   const minDistance = 70; // Minimum distance
   const characterWidth = 6; // Estimated average width per character in pixels
   const textLength = (link.linkTag.length) * characterWidth;
   return textLength < minDistance ? minDistance : textLength;
 }
 
-export function updateFontSize(baseFontSize, svg) {
-  const currentZoomScale = d3.zoomTransform(svg.node()).k;
+export function updateFontSize(
+  baseFontSize: number,
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+): number {
+  const currentZoomScale = d3.zoomTransform(svg.node() as Element).k;
   const adjustedFontSize = baseFontSize / currentZoomScale;
   return adjustedFontSize;
 }

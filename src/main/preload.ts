@@ -1,8 +1,11 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer } from 'electron';
+import type { Note, Link } from '../types/general';
 
-type IpcResponse<T> = { success: true } & T | { success: false; error: string };
+type Ok<T> = { success: true } & T;
+type Err = { success: false; error: string };
+type IpcResponse<T> = Ok<T> | Err;
 
 const api = {
   config: {
@@ -14,19 +17,19 @@ const api = {
       ipcRenderer.invoke('config:updatePath', dir),
   },
   notes: {
-    list: (): Promise<IpcResponse<{ notes: any }>> =>
+    list: (): Promise<IpcResponse<{ notes: Note[] }>> =>
       ipcRenderer.invoke('notes:list'),
-    add: (note: any): Promise<IpcResponse<{ activeNote: any }>> =>
+    add: (note: Note): Promise<IpcResponse<{ activeNote: Note }>> =>
       ipcRenderer.invoke('notes:add', note),
-    update: (note: any): Promise<IpcResponse<{ changes: number }>> =>
+    update: (note: Note): Promise<IpcResponse<{ changes: number }>> =>
       ipcRenderer.invoke('notes:update', note),
     delete: (id: number): Promise<IpcResponse<{}>> =>
       ipcRenderer.invoke('notes:delete', id),
   },
   links: {
-    list: (): Promise<IpcResponse<{ allLinks: any[] }>> =>
+    list: (): Promise<IpcResponse<{ allLinks: Link[] }>> =>
       ipcRenderer.invoke('links:list'),
-    add: (link: any): Promise<IpcResponse<{}>> =>
+    add: (link: Link): Promise<IpcResponse<{}>> =>
       ipcRenderer.invoke('links:add', link),
     delete: (id: number): Promise<IpcResponse<{}>> =>
       ipcRenderer.invoke('links:delete', id),

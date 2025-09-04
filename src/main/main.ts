@@ -42,6 +42,8 @@ const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
 if (isDebug) {
+  // Lazy-load to avoid bundling overhead in production
+  // eslint-disable-next-line global-require
   require('electron-debug')();
 }
 
