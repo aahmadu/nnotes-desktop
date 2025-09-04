@@ -28,5 +28,22 @@ npm-debug.log.*
 *.sass.d.ts
 *.scss.d.ts
 
-# Ignore config.json in src/data/
-src/data/config.json
+
+# Build outputs
+dist/
+out/
+
+# TypeScript build cache
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*.local
+
+# Editor swap/backup files
+*.swp
+*.swo
+*.orig
+
+# Windows artifacts
+Thumbs.db
