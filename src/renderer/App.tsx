@@ -1,8 +1,7 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import { useRef, useState, useCallback, useEffect } from 'react';
 
-import { FloatButton } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 
 import './App.css';
 
@@ -14,12 +13,21 @@ import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
 import GraphView from './components/GraphView';
-import LinkNav from './components/LinkNav';
+import LinkInspector from './components/LinkInspector';
 import SettingsMenu from './components/SettingsMenu';
+import TopBar from './components/TopBar';
 
 import { debounce } from '../utils/general';
 
 function Home() {
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      return saved ? saved === 'dark' : false;
+    } catch {
+      return false;
+    }
+  });
   const [activeNote, setActiveNote] = useState<Note>();
   const [notes, setNotes] = useState<Note[]>([]);
   const [allLinks, setallLinks] = useState<Link[]>([]);
@@ -43,6 +51,11 @@ function Home() {
       console.error('Failed to get tags:', res.error);
     }
   };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch {}
+  }, [isDark]);
 
   useEffect(() => {
     const init = async () => {
@@ -145,69 +158,91 @@ function Home() {
   ); // Debounce for 2 seconds
 
   return (
-    <>
-      {showLinkMenu && (
-        <LinkMenu
-          allNotes={notes}
-          allLinkTags={allLinkTags}
-          onCancelMenu={() => setShowLinkMenu(false)}
-          onCreateLink={handleCreateLink}
+    <ConfigProvider
+      theme={{
+        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#1677ff',
+          borderRadius: 8,
+        },
+      }}
+    >
+      <div className="app-shell">
+        <TopBar
+          isDark={isDark}
+          onToggleTheme={() => setIsDark((d) => !d)}
+          onOpenSettings={() => setShowSettingsMenu(true)}
         />
-      )}
-      {showSettingsMenu && (
-        <SettingsMenu
-          onCancelMenu={() => {
-            setShowSettingsMenu(false);
-            setDbConnected(true);
-            fetchNotes();
-            fetchLinks();
-          }}
-          dbConnected={dbConnected}
-        />
-      )}
-      <PanelGroup className="container" direction="horizontal">
-        <Panel defaultSize={20} minSize={20} maxSize={30}>
-          <Sidebar
-            activeNote={activeNote as Note}
-            notes={notes}
-            onNoteSelect={handleNoteSelect}
-            onNewNote={handleNewNote}
-            onDelete={handleDeleteNote}
-          />
-        </Panel>
-        <PanelResizeHandle />
-        <Panel defaultSize={40} minSize={30}>
-          <PanelGroup direction="vertical">
-            <Panel defaultSize={80} minSize={30}>
-              <Editor
-                activeNote={activeNote}
-                updateDatabase={updateDatabase}
-                onLinkMenu={handleClickLinkMenu}
-              />
-            </Panel>
-            <PanelResizeHandle />
-            <Panel defaultSize={20} minSize={20} style={{ overflowY: 'auto' }}>
-              <LinkNav
-                activeNote={activeNote as Note}
-                notes={notes}
-                links={allLinks}
-                onNoteSelect={handleNoteSelect}
-                onDelete={handleDeleteNote}
-              />
-            </Panel>
-          </PanelGroup>
-        </Panel>
-        <PanelResizeHandle />
-        <Panel defaultSize={40} minSize={30}>
-          <GraphView
-            activeNote={activeNote as Note}
+        <div className="topbar-spacer" />
+        {showLinkMenu && (
+          <LinkMenu
             allNotes={notes}
-            allLinks={allLinks}
-            onNoteSelect={handleNoteSelect}
+            allLinkTags={allLinkTags}
+            onCancelMenu={() => setShowLinkMenu(false)}
+            onCreateLink={handleCreateLink}
           />
-        </Panel>
-      </PanelGroup>
-    </>
+        )}
+        {showSettingsMenu && (
+          <SettingsMenu
+            onCancelMenu={() => {
+              setShowSettingsMenu(false);
+              setDbConnected(true);
+              fetchNotes();
+              fetchLinks();
+            }}
+            dbConnected={dbConnected}
+          />
+        )}
+        <PanelGroup className="container" direction="horizontal">
+          <Panel className="panel-surface" defaultSize={20} minSize={20} maxSize={30}>
+            <Sidebar
+              activeNote={activeNote as Note}
+              notes={notes}
+              onNoteSelect={handleNoteSelect}
+              onNewNote={handleNewNote}
+              onDelete={handleDeleteNote}
+            />
+          </Panel>
+          <PanelResizeHandle className="resize-handle" />
+          <Panel className="panel-surface" defaultSize={40} minSize={30}>
+            <PanelGroup direction="vertical">
+              <Panel className="panel-surface" defaultSize={80} minSize={30}>
+                <Editor
+                  activeNote={activeNote}
+                  updateDatabase={updateDatabase}
+                  onLinkMenu={handleClickLinkMenu}
+                  notes={notes}
+                  onCreateInlineLink={async (note) => {
+                    if (!activeNote) return;
+                    await window.api.links.add({ source: activeNote.id as number, target: note.id as number, linkTag: 'ref' });
+                    fetchLinks();
+                  }}
+                />
+              </Panel>
+              <PanelResizeHandle className="resize-handle" />
+              <Panel className="panel-surface" defaultSize={20} minSize={20} style={{ overflowY: 'auto' }}>
+                <LinkInspector
+                  activeNote={activeNote}
+                  notes={notes}
+                  links={allLinks}
+                  onNoteSelect={handleNoteSelect}
+                  onLinksChanged={() => { fetchLinks(); fetchNotes(); }}
+                />
+              </Panel>
+            </PanelGroup>
+          </Panel>
+          <PanelResizeHandle className="resize-handle" />
+          <Panel className="panel-surface" defaultSize={40} minSize={30}>
+            <GraphView
+              activeNote={activeNote as Note}
+              allNotes={notes}
+              allLinks={allLinks}
+              onNoteSelect={handleNoteSelect}
+            />
+          </Panel>
+        </PanelGroup>
+      </div>
+    </ConfigProvider>
   );
 }
 

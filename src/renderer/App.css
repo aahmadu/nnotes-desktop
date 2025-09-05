@@ -2,14 +2,65 @@
  * @NOTE: Prepend a `~` to css file paths that are in your node_modules
  *        See https://github.com/webpack-contrib/sass-loader#imports
  */
+:root {
+  /* Brand */
+  --brand-primary: #1677ff;
+  --brand-accent: #ffb703;
+
+  /* Surfaces */
+  --bg-app: #ffffff;
+  --bg-elevated: #fafafa;
+  --bg-muted: #f5f5f5;
+
+  /* Content */
+  --text-primary: #1a1a1a;
+  --text-secondary: #5b5b5b;
+  --border: #e9e9e9;
+
+  /* Graph */
+  --graph-node: #7c8da5;
+  --graph-node-selected: #1f2041;
+  --graph-link: #c7c7c7;
+  --graph-link-in: #00a9a5;
+  --graph-link-out: #fa8334;
+  --graph-text: #2b2b2b;
+  --graph-text-muted: #6c6c6c;
+}
+
+[data-theme='dark'] {
+  --bg-app: #0f1216;
+  --bg-elevated: #141922;
+  --bg-muted: #10151c;
+
+  --text-primary: #e6e6e6;
+  --text-secondary: #a6adbb;
+  --border: #262b36;
+
+  --graph-node: #97a8c4;
+  --graph-node-selected: #a688fa;
+  --graph-link: #3a4251;
+  --graph-link-in: #1ec8c1;
+  --graph-link-out: #ff9a57;
+  --graph-text: #e6e6e6;
+  --graph-text-muted: #9aa6b2;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
 body {
   position: relative;
-  color: black;
-  height: 99vh;
-  background: #ffffff;
-  font-family: sans-serif;
-  overflow-y: hidden;
-  border-top: 1px solid #f0f0f0;
+  color: var(--text-primary);
+  height: 100%;
+  background: var(--bg-app);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji,
+    "Segoe UI Symbol", "Noto Emoji", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
   margin: 0;
 }
 
@@ -28,4 +79,47 @@ a {
 a:hover {
   opacity: 1;
   text-decoration: none;
+}
+
+/* Layout containers */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.topbar-spacer {
+  height: 52px; /* matches TopBar height */
+}
+
+.container {
+  height: calc(100% - 52px);
+}
+
+/* Resizable handles */
+.resize-handle {
+  width: 6px;
+  background: transparent;
+  position: relative;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--border);
+  opacity: 0.6;
+}
+.resize-handle:hover::after {
+  opacity: 1;
+  background: var(--brand-primary);
+}
+
+/* Panel backgrounds */
+.panel-surface {
+  background: var(--bg-elevated);
 }
