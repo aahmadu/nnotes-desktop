@@ -7,13 +7,13 @@ import './App.css';
 
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
-import { Note, Link } from '../types/general';
+import { Note, Link } from '../shared/types';
 
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
 import GraphView from './components/GraphView';
-import LinkInspector from './components/LinkInspector';
+import LinkRelations from './components/LinkRelations';
 import SettingsMenu from './components/SettingsMenu';
 import TopBar from './components/TopBar';
 
@@ -56,6 +56,12 @@ function Home() {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch {}
   }, [isDark]);
+
+  useEffect(() => {
+    // Tag the DOM with OS for CSS adjustments (e.g., macOS titlebar inset)
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Mac OS X/.test(navigator.userAgent);
+    document.documentElement.setAttribute('data-os', isMac ? 'mac' : 'other');
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -195,50 +201,58 @@ function Home() {
         )}
         <PanelGroup className="container" direction="horizontal">
           <Panel className="panel-surface" defaultSize={20} minSize={20} maxSize={30}>
-            <Sidebar
-              activeNote={activeNote as Note}
-              notes={notes}
-              onNoteSelect={handleNoteSelect}
-              onNewNote={handleNewNote}
-              onDelete={handleDeleteNote}
-            />
+            <div className="panel-card">
+              <Sidebar
+                activeNote={activeNote as Note}
+                notes={notes}
+                onNoteSelect={handleNoteSelect}
+                onNewNote={handleNewNote}
+                onDelete={handleDeleteNote}
+              />
+            </div>
+          </Panel>
+          <PanelResizeHandle className="resize-handle" />
+          <Panel className="panel-surface" defaultSize={40} minSize={30}>
+            <div className="panel-card">
+              <Editor
+                activeNote={activeNote}
+                updateDatabase={updateDatabase}
+                onLinkMenu={handleClickLinkMenu}
+                notes={notes}
+                onCreateInlineLink={async (note) => {
+                  if (!activeNote) return;
+                  await window.api.links.add({ source: activeNote.id as number, target: note.id as number, linkTag: 'ref' });
+                  fetchLinks();
+                }}
+              />
+            </div>
           </Panel>
           <PanelResizeHandle className="resize-handle" />
           <Panel className="panel-surface" defaultSize={40} minSize={30}>
             <PanelGroup direction="vertical">
-              <Panel className="panel-surface" defaultSize={80} minSize={30}>
-                <Editor
-                  activeNote={activeNote}
-                  updateDatabase={updateDatabase}
-                  onLinkMenu={handleClickLinkMenu}
-                  notes={notes}
-                  onCreateInlineLink={async (note) => {
-                    if (!activeNote) return;
-                    await window.api.links.add({ source: activeNote.id as number, target: note.id as number, linkTag: 'ref' });
-                    fetchLinks();
-                  }}
-                />
+              <Panel className="panel-surface" defaultSize={70} minSize={40}>
+                <div className="panel-card">
+                  <GraphView
+                    activeNote={activeNote as Note}
+                    allNotes={notes}
+                    allLinks={allLinks}
+                    onNoteSelect={handleNoteSelect}
+                  />
+                </div>
               </Panel>
               <PanelResizeHandle className="resize-handle" />
-              <Panel className="panel-surface" defaultSize={20} minSize={20} style={{ overflowY: 'auto' }}>
-                <LinkInspector
-                  activeNote={activeNote}
-                  notes={notes}
-                  links={allLinks}
-                  onNoteSelect={handleNoteSelect}
-                  onLinksChanged={() => { fetchLinks(); fetchNotes(); }}
-                />
+              <Panel className="panel-surface" defaultSize={30} minSize={20} style={{ overflowY: 'auto' }}>
+                <div className="panel-card" style={{ overflowY: 'auto' }}>
+                  <LinkRelations
+                    activeNote={activeNote}
+                    notes={notes}
+                    links={allLinks}
+                    onNoteSelect={handleNoteSelect}
+                    onLinksChanged={() => { fetchLinks(); fetchNotes(); }}
+                  />
+                </div>
               </Panel>
             </PanelGroup>
-          </Panel>
-          <PanelResizeHandle className="resize-handle" />
-          <Panel className="panel-surface" defaultSize={40} minSize={30}>
-            <GraphView
-              activeNote={activeNote as Note}
-              allNotes={notes}
-              allLinks={allLinks}
-              onNoteSelect={handleNoteSelect}
-            />
           </Panel>
         </PanelGroup>
       </div>

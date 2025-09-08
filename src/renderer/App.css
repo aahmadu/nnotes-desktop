@@ -97,29 +97,70 @@ a:hover {
 }
 
 /* Resizable handles */
-.resize-handle {
-  width: 6px;
-  background: transparent;
-  position: relative;
-}
-.resize-handle::after {
+/* Resize handles: clear, well-placed dividers */
+.resize-handle { position: relative; background: transparent; }
+
+/* Horizontal group = vertical divider */
+[data-panel-group-direction='horizontal'] .resize-handle { width: 10px; cursor: col-resize; }
+[data-panel-group-direction='horizontal'] .resize-handle::after {
   content: '';
   position: absolute;
   left: 50%;
   top: 0;
   transform: translateX(-50%);
-  width: 2px;
+  width: 1px;
   height: 100%;
-  border-radius: 2px;
   background: var(--border);
-  opacity: 0.6;
+  opacity: 0.9;
 }
-.resize-handle:hover::after {
-  opacity: 1;
-  background: var(--brand-primary);
+[data-panel-group-direction='horizontal'] .resize-handle:hover::after { background: var(--brand-primary); opacity: 1; }
+
+/* Vertical group = horizontal divider */
+[data-panel-group-direction='vertical'] .resize-handle { height: 10px; cursor: row-resize; }
+[data-panel-group-direction='vertical'] .resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  height: 1px;
+  width: 100%;
+  background: var(--border);
+  opacity: 0.9;
 }
+[data-panel-group-direction='vertical'] .resize-handle:hover::after { background: var(--brand-primary); opacity: 1; }
 
 /* Panel backgrounds */
+/* Let card provide the visual surface to avoid double borders */
 .panel-surface {
+  background: transparent;
+}
+
+/* Simple, consistent chips */
+.chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.chip.on {
+  background: var(--brand-primary);
+  color: white;
+  border-color: transparent;
+}
+
+/* Component window card styling */
+.panel-card {
+  height: 100%;
   background: var(--bg-elevated);
+  border-radius: 10px;
+  border: 0; /* avoid double lines next to handles */
+  padding: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }

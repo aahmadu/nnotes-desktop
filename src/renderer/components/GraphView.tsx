@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, FunctionComponent } from 'react';
 import * as d3 from 'd3';
 
 import { calculateLinkDistance } from './utils';
-import { Note, Link } from '../../types/general';
+import { Note, Link } from '../../shared/types';
 
 interface GraphViewProps {
   activeNote: Note;
@@ -28,6 +28,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
   const zoomBehavior = useRef<d3.ZoomBehavior<SVGSVGElement, unknown>>();
   const viewSelection = useRef<d3.Selection<HTMLDivElement, unknown, null, undefined>>();
   const [focusMode, setFocusMode] = useState(false);
+  const [activeTags, setActiveTags] = useState<string[] | null>(null); // null = all
 
   const getColours = () => {
     const cs = getComputedStyle(document.documentElement);
@@ -253,18 +254,22 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     newLinks: Link[],
     activeNodeId?: number,
   ) {
+    // Apply tag filters first
+    const tags = activeTags && activeTags.length > 0 ? new Set(activeTags) : null;
+    const filteredLinks = tags ? newLinks.filter((l) => tags.has(l.linkTag)) : newLinks;
+
     // Focus mode: limit to neighbors of active
     let scopedNodes = newNodes;
-    let scopedLinks = newLinks;
+    let scopedLinks = filteredLinks;
     const isFocus = focusMode;
     if (isFocus && activeNodeId) {
       const neighborIds = new Set<number>([activeNodeId]);
-      for (const l of newLinks) {
+      for (const l of filteredLinks) {
         if (l.source === activeNodeId) neighborIds.add(l.target);
         if (l.target === activeNodeId) neighborIds.add(l.source);
       }
       scopedNodes = newNodes.filter((n) => n.id && neighborIds.has(n.id));
-      scopedLinks = newLinks.filter((l) => (neighborIds.has(l.source) && neighborIds.has(l.target)));
+      scopedLinks = filteredLinks.filter((l) => (neighborIds.has(l.source) && neighborIds.has(l.target)));
     }
 
     const nodes: NodeDatum[] = scopedNodes.map((n) => ({
@@ -392,7 +397,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     if (allNotes.length > 0) {
       updateGraph(allNotes, allLinks, activeNote?.id);
     }
-  }, [activeNote, allNotes, allLinks]);
+  }, [activeNote, allNotes, allLinks, focusMode, activeTags]);
 
   const fitToView = () => {
     if (!d3Container.current || !zoomBehavior.current) return;
@@ -423,6 +428,45 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       style={{ width: '100%', height: '100%', position: 'relative' }}
     >
       <svg ref={d3Container} style={{ width: '100%', height: '100%' }} />
+      <div
+        style={{
+          position: 'absolute',
+          left: 10,
+          top: 10,
+          display: 'flex',
+          gap: 6,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '6px',
+          maxWidth: '55%',
+          flexWrap: 'wrap',
+        }}
+      >
+        {Array.from(new Set(allLinks.map((l) => l.linkTag))).map((t) => {
+          const on = !activeTags || activeTags.includes(t);
+          return (
+            <button
+              key={t}
+              onClick={() => {
+                setActiveTags((prev) => {
+                  if (prev === null) return [t];
+                  return prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t];
+                });
+              }}
+              className={`chip ${on ? 'on' : ''}`}
+            >
+              {t}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setActiveTags(null)}
+          className="chip"
+        >
+          all
+        </button>
+      </div>
       <div
         style={{
           position: 'absolute',
