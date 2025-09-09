@@ -1,25 +1,33 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
 import { useRef, useState, useCallback, useEffect } from 'react';
 
-import { FloatButton } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 
 import './App.css';
 
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
-import { Note, Link } from '../types/general';
+import { Note, Link } from '../shared/types';
 
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import LinkMenu from './components/LinkMenu';
 import GraphView from './components/GraphView';
-import LinkNav from './components/LinkNav';
+import LinkRelations from './components/LinkRelations';
 import SettingsMenu from './components/SettingsMenu';
+import TopBar from './components/TopBar';
 
 import { debounce } from '../utils/general';
 
 function Home() {
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      return saved ? saved === 'dark' : false;
+    } catch {
+      return false;
+    }
+  });
   const [activeNote, setActiveNote] = useState<Note>();
   const [notes, setNotes] = useState<Note[]>([]);
   const [allLinks, setallLinks] = useState<Link[]>([]);
@@ -43,6 +51,17 @@ function Home() {
       console.error('Failed to get tags:', res.error);
     }
   };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    try { localStorage.setItem('theme', isDark ? 'dark' : 'light'); } catch {}
+  }, [isDark]);
+
+  useEffect(() => {
+    // Tag the DOM with OS for CSS adjustments (e.g., macOS titlebar inset)
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform) || /Mac OS X/.test(navigator.userAgent);
+    document.documentElement.setAttribute('data-os', isMac ? 'mac' : 'other');
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -145,69 +164,99 @@ function Home() {
   ); // Debounce for 2 seconds
 
   return (
-    <>
-      {showLinkMenu && (
-        <LinkMenu
-          allNotes={notes}
-          allLinkTags={allLinkTags}
-          onCancelMenu={() => setShowLinkMenu(false)}
-          onCreateLink={handleCreateLink}
+    <ConfigProvider
+      theme={{
+        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#1677ff',
+          borderRadius: 8,
+        },
+      }}
+    >
+      <div className="app-shell">
+        <TopBar
+          isDark={isDark}
+          onToggleTheme={() => setIsDark((d) => !d)}
+          onOpenSettings={() => setShowSettingsMenu(true)}
         />
-      )}
-      {showSettingsMenu && (
-        <SettingsMenu
-          onCancelMenu={() => {
-            setShowSettingsMenu(false);
-            setDbConnected(true);
-            fetchNotes();
-            fetchLinks();
-          }}
-          dbConnected={dbConnected}
-        />
-      )}
-      <PanelGroup className="container" direction="horizontal">
-        <Panel defaultSize={20} minSize={20} maxSize={30}>
-          <Sidebar
-            activeNote={activeNote as Note}
-            notes={notes}
-            onNoteSelect={handleNoteSelect}
-            onNewNote={handleNewNote}
-            onDelete={handleDeleteNote}
+        <div className="topbar-spacer" />
+        {showLinkMenu && (
+          <LinkMenu
+            allNotes={notes}
+            allLinkTags={allLinkTags}
+            onCancelMenu={() => setShowLinkMenu(false)}
+            onCreateLink={handleCreateLink}
           />
-        </Panel>
-        <PanelResizeHandle />
-        <Panel defaultSize={40} minSize={30}>
-          <PanelGroup direction="vertical">
-            <Panel defaultSize={80} minSize={30}>
+        )}
+        {showSettingsMenu && (
+          <SettingsMenu
+            onCancelMenu={() => {
+              setShowSettingsMenu(false);
+              setDbConnected(true);
+              fetchNotes();
+              fetchLinks();
+            }}
+            dbConnected={dbConnected}
+          />
+        )}
+        <PanelGroup className="container" direction="horizontal">
+          <Panel className="panel-surface" defaultSize={20} minSize={20} maxSize={30}>
+            <div className="panel-card">
+              <Sidebar
+                activeNote={activeNote as Note}
+                notes={notes}
+                onNoteSelect={handleNoteSelect}
+                onNewNote={handleNewNote}
+                onDelete={handleDeleteNote}
+              />
+            </div>
+          </Panel>
+          <PanelResizeHandle className="resize-handle" />
+          <Panel className="panel-surface" defaultSize={40} minSize={30}>
+            <div className="panel-card">
               <Editor
                 activeNote={activeNote}
                 updateDatabase={updateDatabase}
                 onLinkMenu={handleClickLinkMenu}
-              />
-            </Panel>
-            <PanelResizeHandle />
-            <Panel defaultSize={20} minSize={20} style={{ overflowY: 'auto' }}>
-              <LinkNav
-                activeNote={activeNote as Note}
                 notes={notes}
-                links={allLinks}
-                onNoteSelect={handleNoteSelect}
-                onDelete={handleDeleteNote}
+                onCreateInlineLink={async (note) => {
+                  if (!activeNote) return;
+                  await window.api.links.add({ source: activeNote.id as number, target: note.id as number, linkTag: 'ref' });
+                  fetchLinks();
+                }}
               />
-            </Panel>
-          </PanelGroup>
-        </Panel>
-        <PanelResizeHandle />
-        <Panel defaultSize={40} minSize={30}>
-          <GraphView
-            activeNote={activeNote as Note}
-            allNotes={notes}
-            allLinks={allLinks}
-            onNoteSelect={handleNoteSelect}
-          />
-        </Panel>
-      </PanelGroup>
-    </>
+            </div>
+          </Panel>
+          <PanelResizeHandle className="resize-handle" />
+          <Panel className="panel-surface" defaultSize={40} minSize={30}>
+            <PanelGroup direction="vertical">
+              <Panel className="panel-surface" defaultSize={70} minSize={40}>
+                <div className="panel-card">
+                  <GraphView
+                    activeNote={activeNote as Note}
+                    allNotes={notes}
+                    allLinks={allLinks}
+                    onNoteSelect={handleNoteSelect}
+                  />
+                </div>
+              </Panel>
+              <PanelResizeHandle className="resize-handle" />
+              <Panel className="panel-surface" defaultSize={30} minSize={20} style={{ overflowY: 'auto' }}>
+                <div className="panel-card" style={{ overflowY: 'auto' }}>
+                  <LinkRelations
+                    activeNote={activeNote}
+                    notes={notes}
+                    links={allLinks}
+                    onNoteSelect={handleNoteSelect}
+                    onLinksChanged={() => { fetchLinks(); fetchNotes(); }}
+                  />
+                </div>
+              </Panel>
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
+      </div>
+    </ConfigProvider>
   );
 }
 

@@ -1,8 +1,8 @@
-import { useEffect, useRef, FunctionComponent } from 'react';
+import { useEffect, useRef, useState, FunctionComponent } from 'react';
 import * as d3 from 'd3';
 
-import { calculateLinkDistance, colours } from './utils';
-import { Note, Link } from '../../types/general';
+import { calculateLinkDistance } from './utils';
+import { Note, Link } from '../../shared/types';
 
 interface GraphViewProps {
   activeNote: Note;
@@ -20,16 +20,32 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
   allLinks,
   onNoteSelect,
 }) => {
-  const viewContainer = useRef(null);
+  const viewContainer = useRef<HTMLDivElement | null>(null);
   const d3Container = useRef<SVGSVGElement | null>(null);
   const width = 227;
   const height = 691;
   const simulation = useRef<d3.Simulation<NodeDatum, LinkDatum>>();
+  const zoomBehavior = useRef<d3.ZoomBehavior<SVGSVGElement, unknown>>();
+  const viewSelection = useRef<d3.Selection<HTMLDivElement, unknown, null, undefined>>();
+  const [focusMode, setFocusMode] = useState(false);
+  const [activeTags, setActiveTags] = useState<string[] | null>(null); // null = all
+
+  const getColours = () => {
+    const cs = getComputedStyle(document.documentElement);
+    return {
+      node: cs.getPropertyValue('--graph-node').trim() || '#7c8da5',
+      link: cs.getPropertyValue('--graph-link').trim() || '#c7c7c7',
+      selectedNode: cs.getPropertyValue('--graph-node-selected').trim() || '#1F2041',
+      outLink: cs.getPropertyValue('--graph-link-out').trim() || '#FA8334',
+      inLink: cs.getPropertyValue('--graph-link-in').trim() || '#00A9A5',
+      nodeText: cs.getPropertyValue('--graph-text').trim() || 'black',
+      linkText: cs.getPropertyValue('--graph-text-muted').trim() || 'gray',
+    };
+  };
 
   useEffect(() => {
-    const viewSpace = d3
-      .select(viewContainer.current)
-      .attr('class', 'svg-container');
+    const viewSpace = d3.select(viewContainer.current as HTMLDivElement);
+    viewSelection.current = viewSpace as any;
     const svg = d3
       .select(d3Container.current)
       .attr('width', width)
@@ -39,6 +55,41 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
         'style',
         'max-width: 100vh; height: auto; font-family: sans-serif; overflow: visible;',
       );
+    // Background grid
+    const defs = svg.append('defs');
+    defs
+      .append('pattern')
+      .attr('id', 'minor-grid')
+      .attr('width', 20)
+      .attr('height', 20)
+      .attr('patternUnits', 'userSpaceOnUse')
+      .append('path')
+      .attr('d', 'M 20 0 L 0 0 0 20')
+      .attr('fill', 'none')
+      .attr('stroke', getColours().link)
+      .attr('stroke-width', 0.2)
+      .attr('opacity', 0.5);
+
+    defs
+      .append('pattern')
+      .attr('id', 'major-grid')
+      .attr('width', 100)
+      .attr('height', 100)
+      .attr('patternUnits', 'userSpaceOnUse')
+      .append('rect')
+      .attr('width', 100)
+      .attr('height', 100)
+      .attr('fill', 'url(#minor-grid)');
+
+    svg
+      .append('rect')
+      .attr('x', -width)
+      .attr('y', -height)
+      .attr('width', width * 2)
+      .attr('height', height * 2)
+      .attr('fill', 'url(#major-grid)')
+      .attr('opacity', 0.4);
+
     svg.append('g').attr('class', 'links');
     svg.append('g').attr('class', 'nodes');
 
@@ -80,7 +131,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4]) // Limit the zoom scale
       .on('start', (event: any) => {
-        if (event.sourceEvent.type === 'mousedown') {
+        if (event?.sourceEvent && event.sourceEvent.type === 'mousedown') {
           viewSpace.style('cursor', 'grabbing');
         }
       })
@@ -104,6 +155,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
         );
       });
 
+    zoomBehavior.current = zoom as any;
     viewSpace.call(zoom as any);
 
     // Per-type markers, as they don't inherit styles.
@@ -120,7 +172,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       .attr('markerHeight', 6)
       .attr('orient', 'auto')
       .append('path')
-      .attr('fill', (d) => colours[d])
+      .attr('fill', (d) => (getColours() as any)[d])
       .attr('d', 'M0,-5L10,0L0,5');
 
     simulation.current.on('tick', () => {
@@ -202,11 +254,29 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     newLinks: Link[],
     activeNodeId?: number,
   ) {
-    const nodes: NodeDatum[] = newNodes.map((n) => ({
+    // Apply tag filters first
+    const tags = activeTags && activeTags.length > 0 ? new Set(activeTags) : null;
+    const filteredLinks = tags ? newLinks.filter((l) => tags.has(l.linkTag)) : newLinks;
+
+    // Focus mode: limit to neighbors of active
+    let scopedNodes = newNodes;
+    let scopedLinks = filteredLinks;
+    const isFocus = focusMode;
+    if (isFocus && activeNodeId) {
+      const neighborIds = new Set<number>([activeNodeId]);
+      for (const l of filteredLinks) {
+        if (l.source === activeNodeId) neighborIds.add(l.target);
+        if (l.target === activeNodeId) neighborIds.add(l.source);
+      }
+      scopedNodes = newNodes.filter((n) => n.id && neighborIds.has(n.id));
+      scopedLinks = filteredLinks.filter((l) => (neighborIds.has(l.source) && neighborIds.has(l.target)));
+    }
+
+    const nodes: NodeDatum[] = scopedNodes.map((n) => ({
       id: n.id as number,
       title: n.title || '',
     }));
-    const links: LinkDatum[] = newLinks.map((l) => ({
+    const links: LinkDatum[] = scopedLinks.map((l) => ({
       linkTag: l.linkTag,
       source: l.source,
       target: l.target,
@@ -231,12 +301,12 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       )
       .join((enter) => {
         const g = enter.append('g');
-        g.append('line').attr('stroke', colours.link);
+        g.append('line').attr('stroke', getColours().link).attr('stroke-width', 1.2);
         g.append('text')
           .text((d: any) => d.linkTag)
           .attr('font-size', 6)
           .attr('text-anchor', 'middle')
-          .attr('fill', colours.linkText);
+          .attr('fill', getColours().linkText);
         return g;
       });
 
@@ -246,7 +316,9 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       .join((enter) => {
         const g = enter.append('g');
         g.append('circle')
-          .attr('r', 4)
+          .attr('r', 5)
+          .attr('stroke', 'transparent')
+          .attr('stroke-width', 6)
           .call(drag(sim) as any);
         g.append('text')
           .attr('pointer-events', 'none')
@@ -254,7 +326,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
           .attr('dy', 1)
           .attr('font-size', 7)
           .attr('text-anchor', 'middle')
-          .attr('fill', colours.nodeText);
+          .attr('fill', getColours().nodeText);
         return g;
       });
 
@@ -262,8 +334,8 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       .selectAll<SVGCircleElement, any>('circle')
       .attr('fill', (d: any) =>
         activeNodeId && d.id === activeNodeId
-          ? colours.selectedNode
-          : colours.node,
+          ? getColours().selectedNode
+          : getColours().node,
       );
     nodeJoin.selectAll<SVGTextElement, any>('text').text((d: any) => d.title);
 
@@ -280,9 +352,9 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
             nodeID !== undefined &&
             (sourceID === nodeID || targetID === nodeID)
           ) {
-            return sourceID === nodeID ? colours.outLink : colours.inLink;
+            return sourceID === nodeID ? getColours().outLink : getColours().inLink;
           }
-          return colours.link;
+          return getColours().link;
         })
         .attr('marker-end', (d: any) => {
           const sourceID = (d.source as any).id ?? d.source;
@@ -303,7 +375,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     applyLinkStyles(linkJoin, activeNodeId);
 
     nodeJoin.selectAll('circle').on('mouseenter', (event: any, d: any) => {
-      d3.select(event.target).attr('fill', colours.selectedNode);
+      d3.select(event.target).attr('fill', getColours().selectedNode);
       applyLinkStyles(linkJoin as any, d.id);
     });
 
@@ -313,7 +385,7 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
 
     nodeJoin.selectAll('circle').on('mouseleave', (event: any, d: any) => {
       if (d.id !== activeNodeId) {
-        d3.select(event.target).attr('fill', colours.node);
+        d3.select(event.target).attr('fill', getColours().node);
         applyLinkStyles(linkJoin as any, activeNodeId);
       }
     });
@@ -325,7 +397,30 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
     if (allNotes.length > 0) {
       updateGraph(allNotes, allLinks, activeNote?.id);
     }
-  }, [activeNote, allNotes, allLinks]);
+  }, [activeNote, allNotes, allLinks, focusMode, activeTags]);
+
+  const fitToView = () => {
+    if (!d3Container.current || !zoomBehavior.current) return;
+    const simNodes = (simulation.current?.nodes() ?? []) as NodeDatum[];
+    if (simNodes.length === 0) return;
+    const xs = simNodes.map((d) => d.x || 0);
+    const ys = simNodes.map((d) => d.y || 0);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const boxW = Math.max(1, maxX - minX);
+    const boxH = Math.max(1, maxY - minY);
+    const container = viewContainer.current!;
+    const cw = container.clientWidth || 600;
+    const ch = container.clientHeight || 400;
+    const scale = 0.9 * Math.min(cw / boxW, ch / boxH);
+    const tx = cw / 2 - scale * (minX + maxX) / 2;
+    const ty = ch / 2 - scale * (minY + maxY) / 2;
+    const sel = viewSelection.current || d3.select(d3Container.current);
+    (sel as any).transition().duration(250);
+    zoomBehavior.current!.transform(sel as any, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  };
 
   return (
     <div
@@ -333,6 +428,109 @@ const GraphView: FunctionComponent<GraphViewProps> = ({
       style={{ width: '100%', height: '100%', position: 'relative' }}
     >
       <svg ref={d3Container} style={{ width: '100%', height: '100%' }} />
+      <div
+        style={{
+          position: 'absolute',
+          left: 10,
+          top: 10,
+          display: 'flex',
+          gap: 6,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '6px',
+          maxWidth: '55%',
+          flexWrap: 'wrap',
+        }}
+      >
+        {Array.from(new Set(allLinks.map((l) => l.linkTag))).map((t) => {
+          const on = !activeTags || activeTags.includes(t);
+          return (
+            <button
+              key={t}
+              onClick={() => {
+                setActiveTags((prev) => {
+                  if (prev === null) return [t];
+                  return prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t];
+                });
+              }}
+              className={`chip ${on ? 'on' : ''}`}
+            >
+              {t}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setActiveTags(null)}
+          className="chip"
+        >
+          all
+        </button>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          right: 10,
+          top: 10,
+          display: 'flex',
+          gap: 8,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '6px',
+        }}
+      >
+        <button
+          onClick={() => {
+            if (!viewSelection.current || !zoomBehavior.current) return;
+            const sel = viewSelection.current;
+            sel.transition().duration(150);
+            zoomBehavior.current!.scaleBy(sel as any, 1.15);
+          }}
+          style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}
+        >
+          +
+        </button>
+        <button
+          onClick={() => {
+            if (!viewSelection.current || !zoomBehavior.current) return;
+            const sel = viewSelection.current;
+            sel.transition().duration(150);
+            zoomBehavior.current!.scaleBy(sel as any, 0.87);
+          }}
+          style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}
+        >
+          −
+        </button>
+        <button
+          onClick={() => {
+            if (!viewSelection.current || !zoomBehavior.current) return;
+            const sel = viewSelection.current;
+            sel.transition().duration(200);
+            zoomBehavior.current!.transform(sel as any, d3.zoomIdentity);
+          }}
+          style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}
+        >
+          reset
+        </button>
+        <button
+          onClick={() => setFocusMode((prev: any) => {
+            const next = !((prev?.current ?? prev) as boolean);
+            // Force update
+            updateGraph(allNotes, allLinks, activeNote?.id);
+            return typeof prev === 'object' ? (prev.current = next, prev) : next;
+          })}
+          style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}
+        >
+          {focusMode ? 'unfocus' : 'focus'}
+        </button>
+        <button
+          onClick={fitToView}
+          style={{ border: 'none', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer' }}
+        >
+          fit
+        </button>
+      </div>
     </div>
   );
 };

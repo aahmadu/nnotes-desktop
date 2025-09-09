@@ -1,9 +1,8 @@
-import React, { useRef, useState, FunctionComponent, useEffect } from 'react';
+import React, { useState, FunctionComponent } from 'react';
 import { Note } from '../../types/general';
 import './LinkMenu.css';
-import { Modal } from 'antd';
-import * as d3 from 'd3';
-import { colours } from './utils';
+import { Modal, Radio, Select, Input, Space, Typography, Divider } from 'antd';
+import { ArrowRightOutlined, ArrowLeftOutlined, LinkOutlined } from '@ant-design/icons';
 
 interface LinkMenuProps {
   allNotes: Note[];
@@ -12,133 +11,107 @@ interface LinkMenuProps {
   onCancelMenu: () => void;
 }
 
-const LinkMenu: FunctionComponent<LinkMenuProps> = function LinkMenu({
+const LinkMenu: FunctionComponent<LinkMenuProps> = ({
   allNotes,
   allLinkTags,
   onCreateLink,
   onCancelMenu,
-}) {
-  const d3Container = useRef(null);
-  const [linkOption, setLinkOption] = useState('To');
-  const [noteOption, setNoteOption] = useState(
-    allNotes.length > 0 ? allNotes[0].id.toString() : 'new',
+}) => {
+  // Direction must match existing consumer logic ('To'|'From')
+  const [linkOption, setLinkOption] = useState<'To' | 'From'>('To');
+  const [noteOption, setNoteOption] = useState<string>(
+    allNotes.length > 0 ? String(allNotes[0].id) : 'new',
   );
-  const [tagOption, setTagOption] = useState(
-    allLinkTags.length > 0 ? allLinkTags[0] : 'new',
-  );
-  const [newNote, setNewNote] = useState('');
-  const [newTag, setNewTag] = useState('');
+  const [newNoteTitle, setNewNoteTitle] = useState<string>('');
+  const [tagValue, setTagValue] = useState<string>('');
 
-  useEffect(() => {
-    const svg = d3
-      .select(d3Container.current)
+  const isNewNote = noteOption === 'new';
+  const selectedNote = allNotes.find((n) => String(n.id) === noteOption);
+  const canCreate = (isNewNote ? newNoteTitle.trim().length > 0 : !!selectedNote) && tagValue.trim().length > 0;
 
-    svg
-      .append('defs')
-      .selectAll("marker")
-      .data(['link', 'outLink', 'inLink'])
-      .join("marker")
-      .attr('id', (d) => `arrow-${d}`)
-      .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 15)
-      .attr('refY', -0.5)
-      .attr('markerWidth', 6)
-      .attr('markerHeight', 6)
-      .attr('orient', 'auto')
-      .append('path')
-      .attr('fill', (d) => colours[d])
-      .attr('d', 'M0,-5L10,0L0,5');
-
-    svg.append('circle').attr('r', 4)
-  }, []);
-
-  const handleLinkChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setLinkOption(event.target.value);
-  };
-
-  const handleNoteChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setNoteOption(event.target.value);
-    if (event.target.value === 'new') {
-      // If the user selects 'new', show the text field
-      setNewNote('');
-    }
-  };
-
-  const handleTagChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setTagOption(event.target.value);
-    if (event.target.value === 'new') {
-      // If the user selects 'new', show the text field
-      setNewTag('');
-    }
-  };
-
-  const onClickCreate = () => {
-    console.log(
-      'Creating link...',
-      noteOption,
-      allNotes.find((note) => note.id === +noteOption),
-    );
-    const finalNoteOption =
-      noteOption === 'new'
-        ? { title: newNote, content: '' }
-        : allNotes.find((note) => note.id === +noteOption);
-    const finalTagOption = tagOption === 'new' ? newTag : tagOption;
-    onCreateLink(linkOption, finalNoteOption, finalTagOption);
+  const handleCreate = () => {
+    const note: Note = isNewNote
+      ? { title: newNoteTitle.trim(), content: '' }
+      : (selectedNote as Note);
+    onCreateLink(linkOption, note, tagValue.trim());
   };
 
   return (
     <Modal
-      title="Vertically centered modal dialog"
+      title={
+        <Space>
+          <LinkOutlined />
+          <span>Create Link</span>
+        </Space>
+      }
       centered
       open
       okText="Create"
-      onOk={onClickCreate}
+      okButtonProps={{ disabled: !canCreate }}
+      onOk={handleCreate}
       onCancel={onCancelMenu}
     >
-      <svg ref={d3Container} style={{ width: '100%', height: '100%' }} />
-      <label>
-        Link:
-        <select value={linkOption} onChange={handleLinkChange} style={{ width: 120 }}>
-          <option value="to">To</option>
-          <option value="from">From</option>
-        </select>
-      </label>
-      <label>
-        Note:
-        <select value={noteOption} onChange={handleNoteChange}>
-          {allNotes.map(note => (
-            <option key={note.id} value={note.id}>
-              {note.title}
-            </option>
-          ))}
-          <option value="new">New</option>
-        </select>
-        {noteOption === 'new' && (
-          <input
-            type="text"
-            value={newNote}
-            onChange={(event) => setNewNote(event.target.value)}
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <div>
+          <Typography.Text strong>Direction</Typography.Text>
+          <div>
+            <Radio.Group
+              optionType="button"
+              buttonStyle="solid"
+              value={linkOption}
+              onChange={(e) => setLinkOption(e.target.value)}
+            >
+              <Radio.Button value="To">To <ArrowRightOutlined /></Radio.Button>
+              <Radio.Button value="From">From <ArrowLeftOutlined /></Radio.Button>
+            </Radio.Group>
+          </div>
+        </div>
+
+        <div>
+          <Typography.Text strong>Note</Typography.Text>
+          <Select
+            showSearch
+            placeholder="Search note…"
+            style={{ width: '100%' }}
+            value={noteOption}
+            onChange={(v) => setNoteOption(v)}
+            options={[
+              ...allNotes.map((n) => ({ label: n.title || `Untitled #${n.id}`, value: String(n.id) })),
+              { label: 'Create new note…', value: 'new' },
+            ]}
+            filterOption={(input, option) => (option?.label as string).toLowerCase().includes(input.toLowerCase())}
           />
-        )}
-      </label>
-      <label>
-        Tag:
-        <select value={tagOption} onChange={handleTagChange}>
-          {allLinkTags.map((tag) => (
-            <option key={tag} value={tag}>
-              {tag}
-            </option>
-          ))}
-          <option value="new">New</option>
-        </select>
-        {tagOption === 'new' && (
-          <input
-            type="text"
-            value={newTag}
-            onChange={(event) => setNewTag(event.target.value)}
+          {isNewNote && (
+            <Input
+              autoFocus
+              style={{ marginTop: 8 }}
+              placeholder="New note title"
+              value={newNoteTitle}
+              onChange={(e) => setNewNoteTitle(e.target.value)}
+            />
+          )}
+        </div>
+
+        <div>
+          <Typography.Text strong>Tag</Typography.Text>
+          <Select
+            mode="tags"
+            maxTagCount={1}
+            placeholder="Choose or type a tag"
+            style={{ width: '100%' }}
+            value={tagValue ? [tagValue] : []}
+            onChange={(vals) => setTagValue((Array.isArray(vals) ? vals[0] : vals) || '')}
+            tokenSeparators={[',']}
+            options={allLinkTags.map((t) => ({ label: t, value: t }))}
           />
-        )}
-      </label>
+        </div>
+
+        <Divider style={{ margin: '8px 0' }} />
+        <Typography.Text type="secondary">
+          {linkOption === 'To' ? 'Active note → Selected note' : 'Selected note → Active note'}
+          {tagValue ? ` · tag: ${tagValue}` : ''}
+        </Typography.Text>
+      </Space>
     </Modal>
   );
 };

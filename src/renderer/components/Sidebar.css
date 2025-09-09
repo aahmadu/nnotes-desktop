@@ -2,28 +2,30 @@
 
 .sidebar-container {
   position: relative;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
 }
 .menu-container {
-  height: 100vh; /* Adjust this if necessary */
-  overflow-y: auto; /* Enables vertical scrolling */
+  height: 100%;
+  overflow-y: auto;
   padding-bottom: 50px;
 }
 /* Styling the scrollbar track (part the actual scrollbar slides within) */
 .menu-container::-webkit-scrollbar {
   width: 8px; /* scrollbar width */
-  background-color: #F5F5F5; /* background color of the track */
+  background-color: var(--bg-muted); /* background color of the track */
 }
 /* Styling the scrollbar handle */
 .menu-container::-webkit-scrollbar-thumb {
   border-radius: 10px;
-  background-color: #ccc; /* scrollbar color */
-  border: 2px solid #F5F5F5; /* same as track color for "floating" effect */
+  background-color: #b9c0cc; /* scrollbar color */
+  border: 2px solid var(--bg-muted); /* floating effect */
 }
 /* Optional: styling the scrollbar handle on hover */
 .menu-container::-webkit-scrollbar-thumb:hover {
-  background-color: #b3b3b3;
+  background-color: #9aa6b2;
 }
 
 .search-item {
@@ -34,5 +36,3 @@
   max-height: 250px;
   overflow: auto;
 }
-
-
